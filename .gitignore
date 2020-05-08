@@ -49,3 +49,7 @@ qtcreator-*
 
 # Catkin custom files
 CATKIN_IGNORE
+
+# Gaden repos
+/src/gaden/
+/src/olfaction_msgs/
