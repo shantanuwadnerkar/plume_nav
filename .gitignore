@@ -53,3 +53,7 @@ CATKIN_IGNORE
 # Gaden repos
 /src/gaden/
 /src/olfaction_msgs/
+
+# RotorS Simulator repos
+/src/rotors_simulator/
+/src/mav_comm/
