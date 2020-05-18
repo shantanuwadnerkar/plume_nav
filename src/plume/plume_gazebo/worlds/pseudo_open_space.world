@@ -8,13 +8,31 @@
     <include>
         <uri>model://ground_plane</uri>
     </include>
+    
+    <physics type="ode">
+      <ode>
+        <solver>
+          <type>quick</type>
+          <!-- <iters>2</iters> -->
+        </solver>
+        <constraints>
+          <contact_max_correcting_vel>0</contact_max_correcting_vel>
+          <contact_surface_layer>0</contact_surface_layer>
+        </constraints>
+      </ode>
+      <max_contacts>0</max_contacts>
+      <!-- <max_step_size>0.1</max_step_size> -->
+      <max_step_size>0.001</max_step_size>
+      <!-- <real_time_update_rate>10000</real_time_update_rate> -->
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
 
     <!-- gazebo plugin here -->
     <plugin name="helloWorldPlugin" filename="libhelloWorldPlugin.so"/>
 
     <plugin name="plumeSimulatorPlugin" filename="libplumeSimulatorPlugin.so"> -->
-      <init_pos>0.2 -0.0 1.0</init_pos>
-      <nr_spheres>40</nr_spheres>
+      <init_pos>0.0 -0.0 1.0</init_pos>
+      <!-- <nr_spheres>40</nr_spheres> -->
     </plugin>
   </world>
 </sdf>
