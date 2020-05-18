@@ -8,8 +8,6 @@
 #include "gazebo/gazebo.hh"
 // #include <gazebo/common/Plugin.hh>
 
-
-
 #include"ros/ros.h"
 
 namespace gazebo
@@ -23,28 +21,22 @@ public:
             }
     
     double totalSimulationTime{10};
-    double filamentPerSimulator{1};
-        
+    double filamentPerSimulator{1}; 
 
     void Load(physics::WorldPtr _parent, sdf::ElementPtr /*sdf*/)
-    {
-        // Option 1: Insert model from file via function call.
-        // The filename must be in the GAZEBO_MODEL_PATH environment variable.
-        // _parent->InsertModelFile("model://sphere");
-
-        
+    {        
         sdf::SDF sphereSDF;
         sphereSDF.SetFromString(
         "<sdf version ='1.6'>\
             <model name ='sphere'>\
-            <static>false</static>\
-                <pose>0 0 3 0 0 0</pose>\
+            <static>true</static>\
+                <pose>0 0 1 0 0 0</pose>\
                 <link name ='link'>\
                     <self_collide>false</self_collide>\
                     <pose>0 0 0 0 0 0</pose>\
                     <collision name='collision'>\
                     <geometry>\
-                    <sphere><radius>0.5</radius></sphere>\
+                    <sphere><radius>0.01</radius></sphere>\
                     </geometry>\
                     <surface>\
                         <contact><collide_bitmask>0x01</collide_bitmask></contact>\
@@ -61,8 +53,7 @@ public:
         
         int i{0};
 
-
-        std::vector<sdf::ElementPtr> modelVector;
+        // std::vector<sdf::ElementPtr> modelVector;
         // resize vec here with totalSimulationTime * filamentPerSimulator
 
         for (0; i<totalSimulationTime*filamentPerSimulator; i++)
@@ -82,23 +73,20 @@ public:
             sdf::ParamPtr collideBitmaskPtr = contactPtr->GetElement("collide_bitmask")->GetValue();
             bool setCollideBitmask = contactPtr->GetElement("collide_bitmask")->Set(ssHex.str());
 
-            modelVector.push_back(modelsdfPtr);
+            // modelVector.push_back(modelsdfPtr);
             _parent->InsertModelSDF(sphereSDF);
 
         }
 
         ROS_INFO("Sphere initializing...");
 
-        for (std::vector<sdf::ElementPtr>::const_iterator i = modelVector.begin(); i != modelVector.end(); ++i)
-            std::cout << *i << ' ';
+        // for (std::vector<sdf::ElementPtr>::const_iterator i = modelVector.begin(); i != modelVector.end(); ++i)
+        //     std::cout << *i << ' ';
 
-        ROS_INFO("Sphere initialized!");
+        // ROS_INFO("Sphere initialized!");
         // std::chrono::milliseconds timespan(2000); // or whatever
         // std::this_thread::sleep_for(timespan);
-        ROS_INFO("Sleep over!");
-
-
-
+        // ROS_INFO("Sleep over!");
     }
 };
 
