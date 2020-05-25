@@ -4,9 +4,9 @@
         <param name="ylims" value="[0,20]"/>
         <param name="resolution" value="0.4"/>
         <param name="height" value="3"/>
-        <param name="sigma_x" value="10"/>
-        <param name="sigma_y" value="5"/>
-        <param name="sensor_accuracy" value="0.8"/>
+        <param name="sigma_x" value="2"/>
+        <param name="sigma_y" value="2"/>
+        <param name="sensor_accuracy" value="0.9"/>
         <param name="verbose" value="false"/>
         
         # Sensor params
