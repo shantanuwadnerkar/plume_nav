@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   actionlib
   actionlib_msgs
-  gaden_player
+  # gaden_player
 )
 
 ## System dependencies are found with CMake's conventions
@@ -66,9 +66,9 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## Generate actions in the 'action' folder
 add_action_files(
-   FILES
-   waypoint.action
-# )
+  FILES
+  waypoint.action
+)
 
 ## Generate added messages and services with any dependencies listed here
 # generate_messages(
