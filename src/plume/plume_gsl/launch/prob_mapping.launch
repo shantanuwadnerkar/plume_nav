@@ -1,5 +1,5 @@
 <launch>
-    <node name="mapping" pkg="move_robot" type="mapping.py" output="screen">
+    <node name="mapping" pkg="plume_gsl" type="mapping.py" output="screen">
         <param name="xlims" value="[0,20]"/>
         <param name="ylims" value="[0,20]"/>
         <param name="resolution" value="0.4"/>
