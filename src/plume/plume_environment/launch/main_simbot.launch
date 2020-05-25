@@ -90,7 +90,7 @@
         # Loop options        
         <param name="allow_looping" value="true" />
         <param name="loop_from_iteration" value="0" />
-        <param name="loop_to_iteration" value="180" />
+        <param name="loop_to_iteration" value="298" />
         
     </node>
 
