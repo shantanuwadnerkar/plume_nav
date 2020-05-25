@@ -60,3 +60,7 @@ CATKIN_IGNORE
 # RotorS Simulator repos
 /src/rotors_simulator/
 /src/mav_comm/
+gas_simulations/
+occupancy.pgm
+occupancy.yaml
+OccupancyGrid3D.csv
