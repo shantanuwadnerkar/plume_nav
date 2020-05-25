@@ -1,5 +1,0 @@
-<launch>
-    <node name="talker" pkg="move_robot" type="talker.py" output="screen">
-        <param name="testparam" value="Worked"/>
-    </node>
-</launch>
