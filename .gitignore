@@ -56,11 +56,14 @@ CATKIN_IGNORE
 # Gaden repos
 /src/gaden/
 /src/olfaction_msgs/
+gas_simulations/
+wind_simulations/wind_0.csv_U
+wind_simulations/wind_0.csv_V
+wind_simulations/wind_0.csv_W
+occupancy.pgm
+occupancy.yaml
+OccupancyGrid3D.csv
 
 # RotorS Simulator repos
 /src/rotors_simulator/
 /src/mav_comm/
-gas_simulations/
-occupancy.pgm
-occupancy.yaml
-OccupancyGrid3D.csv
