@@ -26,7 +26,7 @@
         </rosparam>
 	    
 	    # Plot 3D OccupancyGridmap
-	    <param name="occupancy3D_data" value="$(find plume_environment)/$)arg scenario)/OccupancyGrid3D.csv" />
+	    <param name="occupancy3D_data" value="$(find plume_environment)/$(arg scenario)/OccupancyGrid3D.csv" />
 	    
 	    # Plot gas sources
         <param name="number_of_sources" value="1"/>
@@ -84,6 +84,6 @@
     <node pkg="map_server" type="map_server" name="map_server" args="$(find plume_environment)/$(arg scenario)/occupancy.yaml" />
   
     ### RVIZ ###
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find plume_environment)/$(arg scenario)/launch/ros/gaden.rviz"/>
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find plume_environment)/launch/ros/gaden.rviz"/>
  
 </launch>

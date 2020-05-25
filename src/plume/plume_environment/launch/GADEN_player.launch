@@ -128,5 +128,5 @@
     <node pkg="map_server" type="map_server" name="map_server" args="$(find plume_environment)/$(arg scenario)/occupancy.yaml" />
   
     ### RVIZ ###
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find plume_environment)/$(arg scenario)/launch/ros/gaden.rviz"/>
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find plume_environment)/launch/ros/gaden.rviz"/>
 </launch>

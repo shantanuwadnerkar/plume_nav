@@ -7,12 +7,12 @@
 -->
 
 <launch>
-    <arg name="scenario" default="trial2" />
+    <arg name="scenario" default="four_pillars" />
 
     ### ROBOT SIMULATION ###
     <param name="use_sim_time" value="true" />
 
-    <node pkg="stage_ros" type="stageros" name="stage_ros" respawn="false" output="screen" args="$(find test_env)/$(arg scenario)/launch/ros/stage.world" >
+    <node pkg="stage_ros" type="stageros" name="stage_ros" respawn="false" output="screen" args="$(find test_env)/launch/ros/stage.world" >
         <param name="laser_scan_topic" value="/laser_scan"/>
         <param name="laser_frame_id" value="laser_stage" />
         <param name="odom_topic" value="/odom"/>
@@ -21,7 +21,7 @@
     </node>
 
     ### URDF MODEL ###
-    <param name="robot_description" textfile="$(find test_env)/$(arg scenario)/launch/ros/giraff.urdf" />
+    <param name="robot_description" textfile="$(find test_env)/launch/ros/giraff.urdf" />
     
     <!-- <param name="robot_description" textfile="$(find rotors_description)/urdf/giraff.urdf" /> -->
     <param name="use_gui" value="True"/>
@@ -29,7 +29,7 @@
 
     ### NAVIGATION ###
     <node name="map_server" pkg="map_server" type="map_server" args="$(find test_env)/$(arg scenario)/occupancy.yaml" />  
-    <include file="$(find test_env)/$(arg scenario)/launch/ros/simbot_move_base.launch" />  
+    <include file="$(find test_env)/launch/ros/simbot_move_base.launch" />  
     <node pkg="fake_localization" type="fake_localization" name="fake_localization" output="screen">	    
         <param name="odom_frame_id" value="odom"/>
         <param name="global_frame_id" value="map"/>
@@ -37,7 +37,7 @@
     </node>
 
     ### RVIZ ###
-    <node name="rviz_player" pkg="rviz" type="rviz" args="-d $(find test_env)/$(arg scenario)/launch/ros/gaden.rviz"/>
+    <node name="rviz_player" pkg="rviz" type="rviz" args="-d $(find test_env)/launch/ros/gaden.rviz"/>
   
   
 # ===================== GADEN =====================================
