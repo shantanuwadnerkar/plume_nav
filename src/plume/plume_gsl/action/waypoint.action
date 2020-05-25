@@ -1,0 +1,10 @@
+# The goal
+geometry_msgs/Point[] points
+---
+# Result
+string succ_msg
+
+---
+# Feedback
+uint32 num_completed
+uint32 total_points
