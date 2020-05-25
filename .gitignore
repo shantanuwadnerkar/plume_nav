@@ -57,9 +57,9 @@ CATKIN_IGNORE
 /src/gaden/
 /src/olfaction_msgs/
 gas_simulations/
-wind_simulations/wind_0.csv_U
-wind_simulations/wind_0.csv_V
-wind_simulations/wind_0.csv_W
+src/plume/plume_environment/wind_simulations/dynamic/wind_0.csv_U
+src/plume/plume_environment/wind_simulations/dynamic/wind_0.csv_V
+src/plume/plume_environment/wind_simulations/dynamic/wind_0.csv_W
 occupancy.pgm
 occupancy.yaml
 OccupancyGrid3D.csv
