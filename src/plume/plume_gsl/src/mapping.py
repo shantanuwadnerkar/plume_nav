@@ -186,7 +186,7 @@ class Prob_Mapping:
             else:
                 gas_conc = self.gas_conc
 
-            rospy.loginfo("x,y = [{},{}], Gas concentration: {}".format(x_pos,y_pos,gas_conc))
+            rospy.loginfo("x,y = [%.2f,%.2f], Gas concentration: %.2f",x_pos,y_pos,gas_conc)
 
             # Check if detection occurs     
             detection = gas_conc > 0      
