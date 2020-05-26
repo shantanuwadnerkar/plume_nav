@@ -97,27 +97,29 @@ class Prob_Mapping:
         self.gas_conc = msg.raw
 
 
-    def find_index(self, x, y, res, m):
-        # Currently this works only if the lower bound of grid.xlims and grid.ylims are 0
+    # def find_index(self, x, y, res, m):
+    #     # Currently this works only if the lower bound of grid.xlims and grid.ylims are 0
 
-        if x/res != int(x/res): # if x is not divisible by res
-            xbar = int(x/res)
-            if xbar >= res/2:
-                x = xbar*res + res
-            else:
-                x = xbar*res
+    #     This function is required only when gamma and beta are treated as matrices
+
+    #     if x/res != int(x/res): # if x is not divisible by res
+    #         xbar = int(x/res)
+    #         if xbar >= res/2:
+    #             x = xbar*res + res
+    #         else:
+    #             x = xbar*res
             
-        if y/res != int(y/res):
-            ybar = int(y/res)
-            if ybar >= res/2:
-                y = ybar*res + res
-            else:
-                y = ybar*res
+    #     if y/res != int(y/res):
+    #         ybar = int(y/res)
+    #         if ybar >= res/2:
+    #             y = ybar*res + res
+    #         else:
+    #             y = ybar*res
 
-        a = int(x/res)
-        b = int(y/res)
-        ind = a + b*m
-        return ind       
+    #     a = int(x/res)
+    #     b = int(y/res)
+    #     ind = a + b*m
+    #     return ind       
 
         
     def go(self):
@@ -126,6 +128,9 @@ class Prob_Mapping:
         pos_sub = rospy.Subscriber("/base_pose_ground_truth", Odometry, self.pos_callback)
         anemo_sub = rospy.Subscriber("/Anemometer/WindSensor_reading", anemometer, self.wind_callback)
         rospy.wait_for_message("/Anemometer/WindSensor_reading", anemometer, rospy.Duration(5.0))
+
+        # Publisher
+        prob_pub = rospy.Publisher("mapping_viz", OccupancyGrid, queue_size=10)
         
         if self.use_service_for_gas:
             rospy.wait_for_service("odor_value")
@@ -137,16 +142,28 @@ class Prob_Mapping:
 
         # Algorithm specific parameters
         # Initializing matrices
-        alpha   = ((1.0/grid.M) * np.ones(grid.M)).reshape(1,grid.M)
+        alpha   = (1.0/grid.M) * np.ones(grid.M)
         Sij     = np.zeros(grid.M)
-        beta    = np.zeros([grid.M, grid.M])
-        gamma   = (1.0/grid.M) * np.ones([grid.M, grid.M])        
+        beta    = np.zeros(grid.M)
+        gamma   = (1.0/grid.M) * np.ones(grid.M)
+
+        # OccupancyGrid
+        prob = OccupancyGrid()
+        prob.info.height = grid.m
+        prob.info.width = grid.n
+        prob.info.resolution = grid.res
+        prob.info.origin.position.x = 0
+        prob.info.origin.position.y = 0
+        prob.info.origin.position.z = 0
+        prob.info.map_load_time = rospy.Time.now()
+        prob.header.frame_id = self.fixed_frame
+        prob.data = (alpha*100).astype(np.int8).tolist()
 
         r = rospy.Rate(2) # Might have to be changed later
 
         self.start_time = rospy.Time.now()
         self.K = -1
-
+        flag = 0
         while not rospy.is_shutdown():
             if self.L is None:
                 continue
@@ -156,22 +173,20 @@ class Prob_Mapping:
             K = self.K
 
             # Find index of points in the prob grid map
-            index = self.find_index(x_pos, y_pos, grid.res, grid.m)
+            # index = self.find_index(x_pos, y_pos, grid.res, grid.m)
 
             # Read chemical concentration
             if self.use_service_for_gas:
                 try:
                     odor_res = odor_req(x_pos, y_pos, grid.height)
                     gas_conc = odor_res.gas_conc[0]
-                    if self.verbose:
-                        rospy.loginfo("x: {}, y: {}, concentration = {}".format(self.x,self.y, odor_res.gas_conc[0]))
                 except rospy.ServiceException, e:
                     rospy.logerr("[mapping.py] Odor service call failed %s"%e)
             
             else:
                 gas_conc = self.gas_conc
 
-            rospy.loginfo("Gas concentration: %f"%gas_conc)
+            rospy.loginfo("x,y = [{},{}], Gas concentration: {}".format(x_pos,y_pos,gas_conc))
 
             # Check if detection occurs     
             detection = gas_conc > 0      
@@ -196,9 +211,9 @@ class Prob_Mapping:
             wind_data = np.delete(self.wind_history[self.L:K+1],2,1).astype(float)
             Vx,Vy = np.sum(wind_data,0) 
 
-            beta[:,index] = 0
-            gamma[:,index] = 1
-
+            beta[:] = 0
+            gamma[:] = 1
+            flag = 0
             for t0 in range(self.L, K):
      
                 tl,tk = self.wind_history[t0][2].to_sec(), self.wind_history[K][2].to_sec()
@@ -220,25 +235,46 @@ class Prob_Mapping:
                         rospy.logerr("All values of Sij = 0. sx and/or sy has to be changed")
                     
                     if detection:
-                        beta[:,index] = beta[:,index] + Sij
+                        beta = beta + Sij
                     else:
-                        gamma[:,index] = gamma[:,index] * (1 - grid.mu*Sij)
+                        gamma = gamma * (1 - grid.mu*Sij)
+                    
+                    # Debugger
+                    # Values can be changed here
+                    # if flag == 0 and i == 2600 and abs(y_pos - 10) < 0.1:
+                    #     flag = 1
+                    #     print("Vx: ", Vx)
+                    #     print("Vy: ", Vy)
+                    #     print("deviation_x: ", deviation_x)
+                    #     print("deviation_y: ", deviation_y)
+                    #     print("tk: ", tk)
+                    #     print("tl: ", tl)
+                    #     print("deltax: ", deltax)
+                    #     print("deltay: ", deltay)
+                    #     print("Sij[i]: ", Sij[i])
             
             if self.L != K:
                 if detection:
-                    beta[:,index] = beta[:,index] / (K-self.L)
-                    alpha_k = grid.M * (beta.dot(alpha.T)).T
+                    beta /= (K-self.L)
+                    alpha_k = grid.M * beta * alpha
                 else:
-                    alpha_k = (grid.M/np.sum(gamma[:,index])) * (gamma.dot(alpha.T)).T
+                    alpha_k = (grid.M/np.sum(gamma)) * gamma * alpha
                 
                 alpha_k = alpha_k/np.sum(alpha_k)
                 alpha = alpha_k
 
+                prob.data = (alpha*1000).astype(np.int8).tolist()
+                prob.data = [100 if x > 100 else x for x in prob.data]
+
+            # rospy.loginfo("Max prob value: %d"%np.max(prob.data))
+            # print("[INFO]: Max concentration: {}\n[INFO]: Value at index: {}".format(np.max(alpha),np.where(alpha == np.max(alpha))))
 
             if self.verbose:
                 if self.L != 0:
-                    rospy.loginfo("self.L ======== %d",self.L)
+                    rospy.loginfo("self.L = %d",self.L)
                 # rospy.loginfo("time interval %f",(curr_time-wind_data[0][-1]).to_sec())
+            
+            prob_pub.publish(prob)
             
             r.sleep()
 
