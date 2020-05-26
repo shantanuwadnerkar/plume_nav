@@ -1,58 +1,66 @@
+import math
+
 import rospy
 
 
-concentration_curr = 0
-concentration_prev = 0
-simulation_time = 0
+class Metaheuristic:
+    def __init__(self):
+        self.simulation_time = 0
+        self.concentration_curr = 0
+        self.concentration_prev = 0
+        
+        # Define some epsilon based on the sensor configuration
+        # Random value. Change later
+        self._concentration_epsilon = 1e-4
+        
+        # Define some lamba. Based on what?
+        # Random value. Change later
+        self._probability_threshold = 1e-4
 
-# Start with some initial guess. How?
-
-# Define some epsilon based on the sensor configuration
-# Random value. Change later
-concentration_epsilon = 1e-4
-
-# Define some lamba. Based on what?
-# Random value. Change later
-probability_threshold = 1e-4
-
-# Subscribe to the sensor readings topic
-
-# Get sensor reading
-
-# Substract the current sensor reading from the previous one
-concentration_change = concentration_curr - concentration_prev
-
-if concentration_change >= concentration_epsilon:
-    pass
-else:
-    maintain_direction_prob = exp(concentration_change - concentration_epsilon)/simulation_time
+        # Start with some initial guess. How?
 
 
-# If the concentration is higher than or equal to epsilon, continue
+    def callback(self, concentration_reading):
+        self.concentration_curr = concentration_reading.data
 
-# else, find the probability that the current direction is right
+        # Substract the current sensor reading from the previous one
+        concentration_change = self.concentration_curr - self.concentration_prev
 
-
-
-# If maintain_direction_prob is greater than lambda, continue
-
-# else, get a new direction.
-
-
-
-# If the current cell is the source, stop
-
-# else keep going in the current direction
-
-# Update simulation_time
-
-
-
+        if concentration_change >= self._concentration_epsilon:
+            # If the concentration is higher than or equal to epsilon, continue in the same direction
+            self.keepDirection()
+        else:
+            # else, find the probability that the current direction is right
+            maintain_direction_prob = math.exp((concentration_change - self._concentration_epsilon)/self.simulation_time)
+            
+            if maintain_direction_prob > self._probability_threshold:
+                self.keepDirection()
+            else:
+                self.getNewHeuristic()
+                pass
 
 
+    def isSource(self):
+        # If the current cell is the source, stop
+        return True
+
+    def getNewHeuristic(self):
+        pass
+
+    def keepDirection(self):
+        if self.isSource():
+            # stop. source located
+            pass
+        else:
+            # keep following the current direction
+            # and update simulation_time
+            pass
+        # Store the current sensor reading as the previous sensor reading
 
 
+if __name__ == "__main__":
+    rospy.init_node("heuristic")
+    mh = Metaheuristic()
+    rospy.Subscriber("abc", abc, queue_size=1, callback=mh.callback)
 
-
-
-# Store the current sensor reading as the previous sensor reading
+    rospy.spin()
