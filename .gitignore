@@ -60,9 +60,6 @@ gas_simulations/
 *.csv_U
 *.csv_V
 *.csv_W
-occupancy.pgm
-occupancy.yaml
-OccupancyGrid3D.csv
 
 # RotorS Simulator repos
 /src/rotors_simulator/
