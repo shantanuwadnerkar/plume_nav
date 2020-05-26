@@ -5,21 +5,7 @@
   <xacro:property name="rotor_drag_coefficient" value="1.8580e-05"/> <!-- [N.m.s^2] -->
   <xacro:property name="moment_constant" value="0.005"/> <!-- [N.s^2] -->
   
-  <link name="base_link">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <!-- <geometry>
-        <cylinder radius="0.01" length=".5" />
-      </geometry> -->
-    </visual>
-    <!-- <collision>
-      <origin xyz="0 0 0" rpy="1.57 0 0" />
-      <geometry>
-        <cylinder radius="0.01" length=".5" />
-      </geometry>
-      <contact_coefficients mu="0" kp="1000.0" kd="1.0"/>
-    </collision> -->
-  </link>
+  <link name="base_link" />
 
   <link name="uav">
     <inertial>
@@ -41,7 +27,7 @@
 
   </link>
 
-  <joint name="uav_connect" type="fixed">
+  <joint name="uav_link" type="fixed">
     <origin xyz="0 0 0" />
     <parent link="base_link"/>
     <child link="uav" />
