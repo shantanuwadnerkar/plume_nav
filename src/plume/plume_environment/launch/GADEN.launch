@@ -47,7 +47,7 @@
 	    <param name="sim_time" value="300" />                    ### [sec] Total time of the gas dispersion simulation
 	    <param name="time_step" value="0.1" />                   ### [sec] Time increment between snapshots. Set aprox = cell_size/max_wind_speed.
 	    <param name="num_filaments_sec" value="10" />            ### Num of filaments released each second
-	    <param name="variable_rate" value="true" />              ### If true the number of released filaments would be random(0,numFilaments_sec)
+	    <param name="variable_rate" value="false" />              ### If true the number of released filaments would be random(0,numFilaments_sec)
         <param name="ppm_filament_center" value="10"/>           ### [ppm] Gas concentration at the center of the 3D gaussian (filament)
         <param name="filament_initial_std" value="20"/>          ### [cm] Sigma of the filament at t=0-> 3DGaussian shape
         <param name="filament_growth_gamma" value="20"/>         ### [cm²/s] Growth ratio of the filament_std
