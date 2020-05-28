@@ -18,9 +18,9 @@
         #CAD model of the outlets (.stl)
         <param name="number_of_outlet_models" value="1"/>
         <param name="outlets_model_0" value="$(find plume_environment)/environments/$(arg scenario)/cad_models/outlet.STL"/>
-	<param name="outlets_model_1" value="$(find plume_environment)/environments/$(arg scenario)/cad_models/outlet.STL"/>
-	<param name="outlets_model_2" value="$(find plume_environment)/environments/$(arg scenario)/cad_models/outlet.STL"/>
-	<param name="outlets_model_3" value="$(find plume_environment)/environments/$(arg scenario)/cad_models/outlet.STL"/>
+	    <param name="outlets_model_1" value="$(find plume_environment)/environments/$(arg scenario)/cad_models/outlet.STL"/>
+	    <param name="outlets_model_2" value="$(find plume_environment)/environments/$(arg scenario)/cad_models/outlet.STL"/>
+	    <param name="outlets_model_3" value="$(find plume_environment)/environments/$(arg scenario)/cad_models/outlet.STL"/>
         #ROS_DEBUG("outlet loaded");
 
         #3D Location of a point in free-space
@@ -33,7 +33,7 @@
         <param name="wind_files" value="$(find plume_environment)/environments/$(arg scenario)/wind_simulations/dynamic/wind"/>
 
         #Where to write the output files
-        <param name="output_path" value="$(find plume_environment)/$(arg scenario)/" />
+        <param name="output_path" value="$(find plume_environment)/environments/$(arg scenario)/" />
     </node>
 </launch>
 
