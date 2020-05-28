@@ -8,6 +8,13 @@
 #include <tf/transform_broadcaster.h>
 #include <nav_msgs/Odometry.h>
 
+# define PI 3.14159265358979323846
+
+void normalize_angle(double& angle)
+{
+    while (angle <= -PI) angle += 2*PI;
+    while (angle > PI) angle -= 2*PI;
+}
 
 class VelocityTransform
 {
@@ -99,7 +106,8 @@ int main(int argc, char** argv) {
         x += dx;
         y += dy;
         yaw += dtheta;        
-        
+        normalize_angle(yaw);
+
         odom_transform.header.stamp = current_time;
         odom_transform.transform.translation.x = x;
         odom_transform.transform.translation.y = y;
