@@ -1,9 +1,0 @@
-digraph G {
-"map" -> "odom"[label="Broadcaster: /crazyflie_pose_transform\nAverage rate: 100.202 Hz\nMost recent transform: 1590622660.973 ( 0.007 sec old)\nBuffer length: 4.940 sec\n"];
-"odom" -> "base_link"[label="Broadcaster: /crazyflie_pose_transform\nAverage rate: 100.202 Hz\nMost recent transform: 1590622660.973 ( 0.007 sec old)\nBuffer length: 4.940 sec\n"];
-"base_link" -> "uav"[label="Broadcaster: /robot_state_publisher\nAverage rate: 10000.000 Hz\nMost recent transform: 0.000 ( 1590622660.981 sec old)\nBuffer length: 0.000 sec\n"];
-edge [style=invis];
- subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
-"Recorded at time: 1590622660.981"[ shape=plaintext ] ;
- }->"map";
-}
