@@ -7,4 +7,5 @@
   <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
   
   <node name="crazyflie_pose_transform" pkg="crazyflie_description" type="pose_transform" />
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find crazyflie_description)/launch/crazyflie2.rviz" required="true" />
 </launch>
