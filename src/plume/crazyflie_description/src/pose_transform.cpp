@@ -13,23 +13,25 @@ class VelocityTransform
 {
     public:
         VelocityTransform();
-        ~VelocityTransform();
         void cmd_vel_callback(const geometry_msgs::Twist::ConstPtr& msg);
         
-        double x_vel{0.0};
-        double y_vel{0.0};
-        double z_vel{0.0};
-        double yaw_rate{0.0};
-        ros::Time message_time = ros::Time::now() - ros::Duration(5);
+        double x_vel;
+        double y_vel;
+        double z_vel;
+        double yaw_rate;
+        ros::Time message_time;
 
     private:
 };
 
 VelocityTransform::VelocityTransform()
-{}
-
-VelocityTransform::~VelocityTransform()
-{}
+{
+    x_vel = 0.0;
+    y_vel = 0.0;
+    z_vel = 0.0;
+    yaw_rate = 0.0;
+    message_time = ros::Time::now() - ros::Duration(5);
+}
 
 void VelocityTransform::cmd_vel_callback(const geometry_msgs::Twist::ConstPtr& msg)
 {
