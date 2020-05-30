@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+
+<launch>
+    <include file="$(find crazyflie_description)/launch/crazyflie2_rviz.launch" />
+
+    <include file="$(find plume_environment)/launch/plume.launch" />
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find plume_gsl)/launch/rviz/demo.rviz" required="true" />
+
+</launch>

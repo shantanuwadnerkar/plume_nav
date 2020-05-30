@@ -16,11 +16,11 @@
         #ROS_DEBUG("Part1 loaded"); 
         
         #CAD model of the outlets (.stl)
-        <param name="number_of_outlet_models" value="1"/>
+        <param name="number_of_outlet_models" value="4"/>
         <param name="outlets_model_0" value="$(find plume_environment)/environments/$(arg scenario)/cad_models/outlet.STL"/>
-	<param name="outlets_model_1" value="$(find plume_environment)/environments/$(arg scenario)/cad_models/outlet.STL"/>
-	<param name="outlets_model_2" value="$(find plume_environment)/environments/$(arg scenario)/cad_models/outlet.STL"/>
-	<param name="outlets_model_3" value="$(find plume_environment)/environments/$(arg scenario)/cad_models/outlet.STL"/>
+	    <param name="outlets_model_1" value="$(find plume_environment)/environments/$(arg scenario)/cad_models/outlet.STL"/>
+	    <param name="outlets_model_2" value="$(find plume_environment)/environments/$(arg scenario)/cad_models/outlet.STL"/>
+	    <param name="outlets_model_3" value="$(find plume_environment)/environments/$(arg scenario)/cad_models/outlet.STL"/>
         #ROS_DEBUG("outlet loaded");
 
         #3D Location of a point in free-space
