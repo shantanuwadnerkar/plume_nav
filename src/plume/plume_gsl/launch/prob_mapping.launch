@@ -17,4 +17,12 @@
         <param name="sensor_frame" value="mox_frame"/>
         <param name="use_service_for_gas" value="false"/>
     </node>
+
+    <node pkg="plume_gsl" type="source_from_map.py" name="source_from_map"/>
+    <node pkg="rqt_plot" type="rqt_plot" name="Concentration" args="/concentration/data"/>
+    <!-- <node pkg="rosbag" type="record" name="rosbagger" args="record -o $(find plume_gsl)/bagfiles/ /base_pose_ground_truth /concentration /Anemometer/WindSensor_reading /max_probability"/> -->
+    
+    <!-- The robot starts moving to this point. -->
+    <!-- Comment this line to prevent the robot motion -->
+    <!-- <node pkg="crazyflie_control" type="mover.py" name="mover" args="15 10"/>  -->
 </launch>
