@@ -6,6 +6,14 @@
   <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
   <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
   
-  <node name="crazyflie_pose_transform" pkg="crazyflie_description" type="pose_transform" />
+  <node name="crazyflie_pose_transform" pkg="crazyflie_description" type="pose_transform">
+    <rosparam command="load">
+      drone_spawn_x: 15.0
+      drone_spawn_y: 10.0
+      drone_spawn_z: 0.5
+      drone_spawn_yaw: 0.0
+    </rosparam>
+  </node>
+
 
 </launch>

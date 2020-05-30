@@ -52,20 +52,33 @@ void VelocityTransform::cmd_vel_callback(const geometry_msgs::Twist::ConstPtr& m
 
 
 int main(int argc, char** argv) {
-    ros::init(argc, argv, "pose_transform");
-    ros::NodeHandle n;
+    ros::init(argc, argv, "crazyflie_pose_transform");
+    ros::NodeHandle nh;
 
     VelocityTransform vT;
 
+    double drone_spawn_x{0.0};
+    double drone_spawn_y{0.0};
+    double drone_spawn_z{0.0};
+    double drone_spawn_yaw{0.0};
+    
+    nh.param<double>("/crazyflie_pose_transform/drone_spawn_x", drone_spawn_x, 3.0);
+    nh.param<double>("/crazyflie_pose_transform/drone_spawn_y", drone_spawn_y, 10.0);
+    nh.param<double>("/crazyflie_pose_transform/drone_spawn_z", drone_spawn_z, 0.5);
+    nh.param<double>("/crazyflie_pose_transform/drone_spawn_yaw", drone_spawn_yaw, 0.0);
+    
+    // Odom frame should be placed at this location wrt map frame representing drone spawn location
+    // Initilize drone using rosparameters declared in launch file
+    // x=15.0, y=10.0, z=0.5, yaw=0.0. These coordinates spawn the drone  in the center of the plume 12 m away from the source.
     tf::TransformBroadcaster mapToOdom_;
-    tf::Transform map_transform_{ tf::Quaternion(0, 0, 0, 1), tf::Vector3(0.0, 0.0, 0.0) };
+    tf::Transform map_transform_{ tf::Quaternion(0, 0, drone_spawn_yaw, 1), tf::Vector3(drone_spawn_x, drone_spawn_y, drone_spawn_z) };
 
     tf::TransformBroadcaster odomTransform_;
     geometry_msgs::TransformStamped odom_transform;
     nav_msgs::Odometry odom;
 
-    ros::Subscriber cmd_vel_sub = n.subscribe("cmd_vel", 1, &VelocityTransform::cmd_vel_callback, &vT);
-    ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("base_pose_ground_truth",10);
+    ros::Subscriber cmd_vel_sub = nh.subscribe("cmd_vel", 1, &VelocityTransform::cmd_vel_callback, &vT);
+    ros::Publisher odom_pub = nh.advertise<nav_msgs::Odometry>("base_pose_ground_truth", 10);
 
     ros::Rate rate(100);
 
@@ -76,12 +89,12 @@ int main(int argc, char** argv) {
     ros::Time current_time;
     ros::Time previous_time;
 
-    // Following variables should be initialized from parameters
+    // Drone should be spawned at the odom frame origin
     double x{0.0};
     double y{0.0};
-    double z{0.5};
+    double z{0.0};
     double yaw{0.0};
-
+    
     odom_transform.header.frame_id = "odom";
     odom_transform.child_frame_id = "base_link";
     odom.header.frame_id = "odom";
@@ -91,6 +104,7 @@ int main(int argc, char** argv) {
     {
         current_time = ros::Time::now();
 
+        // TODO: Need to make map-> odom a static transform
         mapToOdom_.sendTransform(tf::StampedTransform(map_transform_, current_time, "map", "odom"));        
         
         if (abs((current_time - vT.message_time).toSec()) >= timeout)
@@ -99,15 +113,19 @@ int main(int argc, char** argv) {
             vT.y_vel = 0;
             vT.yaw_rate = 0;
         }
+        
+        // Calculate position from cmd_vel
         dx = (vT.x_vel * cos(yaw) - vT.y_vel * sin(yaw)) * dt;
         dy = (vT.x_vel * sin(yaw) + vT.y_vel * cos(yaw)) * dt;
         dtheta = vT.yaw_rate * dt;
 
+        // Update position and angle
         x += dx;
         y += dy;
         yaw += dtheta;        
         normalize_angle(yaw);
 
+        // Transform drone in Rviz
         odom_transform.header.stamp = current_time;
         odom_transform.transform.translation.x = x;
         odom_transform.transform.translation.y = y;
@@ -116,6 +134,7 @@ int main(int argc, char** argv) {
 
         odomTransform_.sendTransform(odom_transform);
 
+        // Topic for publishing drone position and velocity for other nodes to subscribe
         // Filling odometry
         // Setting position
         odom.header.stamp = current_time;
