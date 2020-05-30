@@ -4,6 +4,7 @@ import rospy
 from nav_msgs.msg import OccupancyGrid
 from gridworld import GridWorld
 import numpy as np
+from geometry_msgs.msg import Point
 
 def find_position(index, m, res):
     a = (index%m)
@@ -30,7 +31,6 @@ def callbackfn(msg):
         max_y += y
     max_x /= len(max_positions[0])
     max_y /= len(max_positions[0])
-    # return max_x, max_y
 
 
 rospy.init_node("source_from_map")
@@ -40,19 +40,15 @@ res = grid.res
 max_x = 0
 max_y = 0
 rospy.Subscriber("mapping_viz",OccupancyGrid, callbackfn)
-r = rospy.Rate(2)
+pub = rospy.Publisher("max_probability", Point, queue_size=10)
+
+max_prob = Point()
+max_prob.z = 0
+
+r = rospy.Rate(1)
 
 while not rospy.is_shutdown():
-    rospy.loginfo("max_x = {}, max_y = {}".format(max_x, max_y))
+    max_prob.x = max_x
+    max_prob.y = max_y
+    pub.publish(max_prob)
     r.sleep()
-
-
-# m = 51
-# res = 0.4
-# class Abcd:
-#     def __init__(self):
-#         self.data = [0,2600,1300,450]
-
-# msg = Abcd()
-# x_max,y_max = callbackfn(msg)
-# print("x_max = {}, y_max = {}".format(x_max,y_max))
