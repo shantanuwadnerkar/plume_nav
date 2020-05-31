@@ -20,6 +20,9 @@ class Metaheuristic:
 
         self.concentration_curr = 0
         self.concentration_prev = 0
+
+        self.wind_speed = 0
+        self.wind_direction = 0
         
         # Define some epsilon based on the sensor configuration
         # Random value. Change later
@@ -33,7 +36,7 @@ class Metaheuristic:
 
 
     def concentration_callback(self, concentration_reading):
-        self.concentration_curr = concentration_reading.data
+        self.concentration_curr = concentration_reading.raw
 
         # Substract the current sensor reading from the previous one
         concentration_change = self.concentration_curr - self.concentration_prev
@@ -60,14 +63,15 @@ class Metaheuristic:
 
 
     def wind_callback(self, msg):
-        pass
+        self.wind_speed = msg.wind_speed
+        self.wind_direction = msg.wind_direction
 
 
     def concentration_mean(self):
         pass
 
 
-    def isSource(self):
+    def isSource(self, msg):
         # If the current cell is the source, stop
         return True
 
@@ -112,5 +116,7 @@ if __name__ == "__main__":
 
     # Subscribe to Anemometer - get wind data
     rospy.Subscriber("Anemometer/WindSensor_reading", anemometer, callback=mh.wind_callback)
+
+    rospy.Subscriber("max_probability", , callback=mh.isSource)
     
     rospy.spin()
