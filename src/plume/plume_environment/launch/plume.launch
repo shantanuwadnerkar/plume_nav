@@ -28,7 +28,7 @@
 	    # Plot gas sources
         <param name="number_of_sources" value="1"/>
         <rosparam>
-            source_0_position_x: 3.0
+            source_0_position_x: 1.0
             source_0_position_y: 10.0
             source_0_position_z: 3.0
             source_0_scale: 0.2
