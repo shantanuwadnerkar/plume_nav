@@ -66,5 +66,5 @@ gas_simulations/
 /src/mav_comm/
 
 # Bagfiles and results
-/src/plume/plume_gsl/bagfiles/*
-/src/plume/plume_gsl/csvfiles/*
+/src/plume/plume_tools/bagfiles/*
+/src/plume/plume_tools/csvfiles/*
