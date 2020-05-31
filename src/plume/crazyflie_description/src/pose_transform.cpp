@@ -71,7 +71,7 @@ int main(int argc, char** argv) {
     // Initilize drone using rosparameters declared in launch file
     // x=15.0, y=10.0, z=0.5, yaw=0.0. These coordinates spawn the drone  in the center of the plume 12 m away from the source.
     tf::TransformBroadcaster mapToOdom_;
-    tf::Transform map_transform_{ tf::Quaternion(0, 0, drone_spawn_yaw, 1), tf::Vector3(drone_spawn_x, drone_spawn_y, drone_spawn_z) };
+    tf::Transform map_transform_{ tf::Quaternion(0.0, 0.0, 0.0, 1), tf::Vector3(0.0, 0.0, 0.0) };
 
     tf::TransformBroadcaster odomTransform_;
     geometry_msgs::TransformStamped odom_transform;
@@ -90,10 +90,10 @@ int main(int argc, char** argv) {
     ros::Time previous_time;
 
     // Drone should be spawned at the odom frame origin
-    double x{0.0};
-    double y{0.0};
-    double z{0.0};
-    double yaw{0.0};
+    double x{drone_spawn_x};
+    double y{drone_spawn_y};
+    double z{drone_spawn_z};
+    double yaw{drone_spawn_yaw};
     
     odom_transform.header.frame_id = "odom";
     odom_transform.child_frame_id = "base_link";
