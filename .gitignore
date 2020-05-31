@@ -64,3 +64,7 @@ gas_simulations/
 # RotorS Simulator repos
 /src/rotors_simulator/
 /src/mav_comm/
+
+# Bagfiles and results
+/src/plume/plume_gsl/bagfiles/*
+/src/plume/plume_gsl/csvfiles/*
