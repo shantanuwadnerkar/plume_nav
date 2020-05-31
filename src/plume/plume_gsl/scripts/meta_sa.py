@@ -12,17 +12,21 @@ from tf.transformations import euler_from_quaternion
 
 class Metaheuristic:
     def __init__(self):
-        self.simulation_time = 0
+        self.simulation_time = 0.0
 
-        self.drone_x = 0
-        self.drone_y = 0
-        self.drone_heading = 0
+        self.drone_x = 0.0
+        self.drone_y = 0.0
+        self.drone_heading = 0.0
 
-        self.concentration_curr = 0
-        self.concentration_prev = 0
+        self.concentration_curr = 0.0
+        self.concentration_prev = 0.0
 
-        self.wind_speed = 0
-        self.wind_direction = 0
+        self.wind_speed = 0.0
+        self.wind_direction = 0.0
+
+        self.max_source_prob_x = 0.0
+        self.max_source_prob_y = 0.0
+        self.max_source_prob_z = 0.0
         
         self._position_epsilon = 1e-4
         # Define some epsilon based on the sensor configuration
@@ -72,13 +76,15 @@ class Metaheuristic:
         pass
 
 
-    def isSource(self, msg):
+    def max_source_probability_callback(self, msg):
+        self.max_source_prob_x = msg.x
+        self.max_source_prob_y = msg.y
+        self.max_source_prob_z = msg.z
+
+
+    def isSource(self):
         # If the current cell is the source, stop
-        max_source_prob_x = msg.x
-        max_source_prob_y = msg.y
-        # max_source_prob_z = msg.z
-        
-        if abs(max_source_prob_x - self.drone_x) < self._position_epsilon and abs(max_source_prob_y - self.drone_y) < self._position_epsilon:
+        if abs(self.max_source_prob_x - self.drone_x) < self._position_epsilon and abs(self.max_source_prob_y - self.drone_y) < self._position_epsilon:
             return True
 
         return False
@@ -125,6 +131,6 @@ if __name__ == "__main__":
     # Subscribe to Anemometer - get wind data
     rospy.Subscriber("Anemometer/WindSensor_reading", anemometer, callback=mh.wind_callback)
 
-    rospy.Subscriber("max_probability", Point, callback=mh.isSource)
+    rospy.Subscriber("max_probability", Point, callback=mh.max_source_probability_callback)
     
     rospy.spin()
