@@ -24,6 +24,7 @@ class Metaheuristic:
         self.wind_speed = 0
         self.wind_direction = 0
         
+        self._position_epsilon = 1e-4
         # Define some epsilon based on the sensor configuration
         # Random value. Change later
         self._concentration_epsilon = 1e-4
@@ -55,7 +56,7 @@ class Metaheuristic:
                 pass
 
 
-    def drone_location_callback(self, msg):
+    def drone_position_callback(self, msg):
         self.drone_x = msg.pose.pose.position.x
         self.drone_y = msg.pose.pose.position.y
         rot_q = msg.pose.pose.position.orientation
@@ -73,7 +74,14 @@ class Metaheuristic:
 
     def isSource(self, msg):
         # If the current cell is the source, stop
-        return True
+        max_source_prob_x = msg.x
+        max_source_prob_y = msg.y
+        # max_source_prob_z = msg.z
+        
+        if abs(max_source_prob_x - self.drone_x) < self._position_epsilon and abs(max_source_prob_y - self.drone_y) < self._position_epsilon:
+            return True
+
+        return False
 
 
     def getNewHeuristic(self):
@@ -109,7 +117,7 @@ if __name__ == "__main__":
     mh = Metaheuristic()
 
     # Current position and speed
-    rospy.Subscriber("/base_pose_ground_truth", Odometry, callback=mh.drone_location_callback)
+    rospy.Subscriber("/base_pose_ground_truth", Odometry, callback=mh.drone_position_callback)
 
     # subscribe to concentration_reading
     rospy.Subscriber("PID/Sensor_reading", gas_sensor, callback=mh.concentration_callback)
@@ -117,6 +125,6 @@ if __name__ == "__main__":
     # Subscribe to Anemometer - get wind data
     rospy.Subscriber("Anemometer/WindSensor_reading", anemometer, callback=mh.wind_callback)
 
-    rospy.Subscriber("max_probability", , callback=mh.isSource)
+    rospy.Subscriber("max_probability", Point, callback=mh.isSource)
     
     rospy.spin()
