@@ -35,6 +35,8 @@ class MoveDrone:
         self.actionlib_server = actionlib.SimpleActionServer('waypoint_heuristic', waypointAction, self.waypoint_callback, False)
         self.actionlib_server.start()
 
+        self.vel_pub = Twist()
+
 
     def angular_difference(self, a, b):
         # direction = (a - b)/abs(a - b)
@@ -43,35 +45,31 @@ class MoveDrone:
         return difference
 
 
-    def compute_velocity_to_goal(self):
+    def compute_velocity_to_goal(self, goal_distance):
+
+        angle_to_goal = math.atan2((self.goal_y - self.drone_curr_y), (self.goal_x - self.drone_curr_x))
+    
+        if abs(angle_to_goal - theta) > self._angle_epsilon:
+            self.vel_msg.linear.x = 0
+            self.vel_msg.angular.z = self._velocity_gain * self.angular_difference(theta, angle_to_goal)
+        else:
+            self.vel_msg.linear.x = self._angular_gain * goal_distance
+            self.vel_msg.angular.z = 0
+
+
+    def has_reached_goal(self):
         
         goal_distance = math.sqrt((self.drone_curr_x - self.goal_x) ** 2 + (self.drone_curr_y - self.goal_y) ** 2)
         
         if goal_distance > self._position_epsilon:
-        
-            angle_to_goal = math.atan2((self.goal_y - self.drone_curr_y), (self.goal_x - self.drone_curr_x))
-        
-            if abs(angle_to_goal - theta) > self._angle_epsilon:
-                vel_msg.linear.x = 0
-                vel_msg.angular.z = self._velocity_gain * self.angular_difference(theta, angle_to_goal)
-            else:
-                vel_msg.linear.x = self._angular_gain * goal_distance
-                vel_msg.angular.z = 0
+            
+            self.compute_velocity_to_goal(goal_distance)        
             return False
         
         else:            
-            vel_msg.linear.x = 0
-            vel_msg.angular.z = 0
+            self.vel_msg.linear.x = 0
+            self.vel_msg.angular.z = 0
             return True
-
-    # Removing the following function because the same calculation is done right before calling this function
-    # def has_reached_goal(self):
-    #     # Use the below formula or do it using goal_distance. Decide how.
-    #     if math.sqrt( (self.goal_x - self.drone_curr_x)**2 + (self.goal_y - self.drone_curr_y)**2 ) < self._position_epsilon:
-    #         return True
-    #     else:
-    #         return False
-
 
 
     def waypoint_callback(self, goal):
