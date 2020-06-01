@@ -102,6 +102,8 @@ class Prob_Mapping:
 
         wind_data = self.wind_history[self.L:]               
 
+        # Check if wind interval is greater than permissible interval
+        # Adjust interval to the permissible limit
         if (curr_time - wind_data[0][-1]) > self.t_max:
             for windinstance in wind_data:
                 if curr_time - windinstance[-1] > self.t_max:
