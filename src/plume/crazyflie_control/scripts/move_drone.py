@@ -73,11 +73,11 @@ class MoveDrone:
             return True
 
 
-    def waypoint_callback(self, goal):
+    def waypoint_action_callback(self, goal):
         # IMP!!!!!!!!!!!!!!!
         # Assign goal here from goal msg
-        self.goal_x = 0.0
-        self.goal_y = 0.0
+        self.goal_x = goal.points[0].x
+        self.goal_y = goal.points[0].y
 
         # handle failure to reach goal and/or preemption. Also, send feedback. Do this using has_reached_goal()
 
