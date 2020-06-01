@@ -118,7 +118,7 @@ if __name__ == "__main__":
 
     # Publish next waypoint in this node. This waypoint will be used by a waypoint manager to publish to cmd_vel
     # Change the topic name and topic type to something sensible
-    waypoint_pub = rospy.Publisher("waypoint", way, queue_size=10)
+    waypoint_pub = rospy.Publisher("waypoint", Point, queue_size=10)
 
     mh = Metaheuristic()
 
