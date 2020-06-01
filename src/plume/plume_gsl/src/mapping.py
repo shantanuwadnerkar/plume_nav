@@ -36,7 +36,6 @@ class Prob_Mapping:
         self.t_max = rospy.Duration(15) # Approx the max time it takes for particle to move across the space
         self.K = -2 # (upper) pointer to the wind data for current time
         self.L = None # (lower) pointer to the wind data furthest way from current time but within self.t_max 
-
         
         # params
         self.fixed_frame  = rospy.get_param("~fixed_frame")
@@ -96,32 +95,23 @@ class Prob_Mapping:
     def sensor_callback(self, msg):
         self.gas_conc = msg.raw
 
-
-    # def find_index(self, x, y, res, m):
-    #     # Currently this works only if the lower bound of grid.xlims and grid.ylims are 0
-
-    #     This function is required only when gamma and beta are treated as matrices
-
-    #     if x/res != int(x/res): # if x is not divisible by res
-    #         xbar = int(x/res)
-    #         if xbar >= res/2:
-    #             x = xbar*res + res
-    #         else:
-    #             x = xbar*res
-            
-    #     if y/res != int(y/res):
-    #         ybar = int(y/res)
-    #         if ybar >= res/2:
-    #             y = ybar*res + res
-    #         else:
-    #             y = ybar*res
-
-    #     a = int(x/res)
-    #     b = int(y/res)
-    #     ind = a + b*m
-    #     return ind       
-
         
+    def adjust_wind_interval(self):
+
+        curr_time = rospy.Time.now()
+
+        wind_data = self.wind_history[self.L:]               
+
+        if (curr_time - wind_data[0][-1]) > self.t_max:
+            for windinstance in wind_data:
+                if curr_time - windinstance[-1] > self.t_max:
+                    self.L += 1
+                else:
+                    break
+                if windinstance == wind_data[-1]:
+                    rospy.logerr("Did not break loop")
+
+    
     def go(self):
         
         # Subscribers to know the position
@@ -129,15 +119,18 @@ class Prob_Mapping:
         anemo_sub = rospy.Subscriber("/Anemometer/WindSensor_reading", anemometer, self.wind_callback)
         rospy.wait_for_message("/Anemometer/WindSensor_reading", anemometer, rospy.Duration(5.0))
 
-        # Publisher
+        # Probability mapping publisher
         prob_pub = rospy.Publisher("mapping_viz", OccupancyGrid, queue_size=10)
         
+        # Choose between service and topic
         if self.use_service_for_gas:
             rospy.wait_for_service("odor_value")
             odor_req = rospy.ServiceProxy('odor_value', GasPosition)
         else:
-            sensor_sub = rospy.Subscriber("/PID/Sensor_reading", gas_sensor, self.sensor_callback)       
+            sensor_sub = rospy.Subscriber("/PID/Sensor_reading", gas_sensor, self.sensor_callback)
         
+        
+        # Get grid parameters
         grid = GridWorld()
 
         # Algorithm specific parameters
@@ -159,11 +152,11 @@ class Prob_Mapping:
         prob.header.frame_id = self.fixed_frame
         prob.data = (alpha*100).astype(np.int8).tolist()
 
-        r = rospy.Rate(2) # Might have to be changed later
-
         self.start_time = rospy.Time.now()
         self.K = -1
-        flag = 0
+
+        r = rospy.Rate(2) # Might have to be changed later
+
         while not rospy.is_shutdown():
             if self.L is None:
                 continue
@@ -171,9 +164,6 @@ class Prob_Mapping:
             # Creating local saves at each timestep for continuously changing values
             x_pos,y_pos = self.x, self.y
             K = self.K
-
-            # Find index of points in the prob grid map
-            # index = self.find_index(x_pos, y_pos, grid.res, grid.m)
 
             # Read chemical concentration
             if self.use_service_for_gas:
@@ -191,29 +181,15 @@ class Prob_Mapping:
             # Check if detection occurs     
             detection = gas_conc > 0      
 
-            ####### Adjust lower pointer to not exceed t_max ############
-            curr_time = rospy.Time.now()
+            self.adjust_wind_interval()
 
-            wind_data = self.wind_history[self.L:]               
-
-            if (curr_time - wind_data[0][-1]) > self.t_max:
-                for windinstance in wind_data:
-                    if curr_time - windinstance[-1] > self.t_max:
-                        self.L += 1
-                    else:
-                        break
-                    if windinstance == wind_data[-1]:
-                        rospy.logerr("Did not break loop")
-
-            ##############################################################
-            
-            # Wind values from t_L to t_K without accounting for the 'time' columnof wind_history
+            # Wind values from t_L to t_K without accounting for the 'time' column of wind_history
             wind_data = np.delete(self.wind_history[self.L:K+1],2,1).astype(float)
             Vx,Vy = np.sum(wind_data,0) 
 
             beta[:] = 0
             gamma[:] = 1
-            flag = 0
+
             for t0 in range(self.L, K):
      
                 tl,tk = self.wind_history[t0][2].to_sec(), self.wind_history[K][2].to_sec()
@@ -238,22 +214,9 @@ class Prob_Mapping:
                         beta = beta + Sij
                     else:
                         gamma = gamma * (1 - grid.mu*Sij)
-                    
-                    # Debugger
-                    # Values can be changed here
-                    # if flag == 0 and i == 2600 and abs(y_pos - 10) < 0.1:
-                    #     flag = 1
-                    #     print("Vx: ", Vx)
-                    #     print("Vy: ", Vy)
-                    #     print("deviation_x: ", deviation_x)
-                    #     print("deviation_y: ", deviation_y)
-                    #     print("tk: ", tk)
-                    #     print("tl: ", tl)
-                    #     print("deltax: ", deltax)
-                    #     print("deltay: ", deltay)
-                    #     print("Sij[i]: ", Sij[i])
             
             if self.L != K:
+
                 if detection:
                     beta /= (K-self.L)
                     alpha_k = grid.M * beta * alpha
@@ -263,16 +226,14 @@ class Prob_Mapping:
                 alpha_k = alpha_k/np.sum(alpha_k)
                 alpha = alpha_k
 
+                # Probability map is scaled up by a factor to show the color in Rviz
+                # Occupancy map supports only integers from 0-100
                 prob.data = (alpha*1000).astype(np.int8).tolist()
                 prob.data = [100 if x > 100 else x for x in prob.data]
-
-            # rospy.loginfo("Max prob value: %d"%np.max(prob.data))
-            # print("[INFO]: Max concentration: {}\n[INFO]: Value at index: {}".format(np.max(alpha),np.where(alpha == np.max(alpha))))
 
             if self.verbose:
                 if self.L != 0:
                     rospy.loginfo("self.L = %d",self.L)
-                # rospy.loginfo("time interval %f",(curr_time-wind_data[0][-1]).to_sec())
             
             prob_pub.publish(prob)
             
