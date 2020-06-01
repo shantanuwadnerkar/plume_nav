@@ -58,11 +58,12 @@ class MoveDrone:
 
 
     def has_reached_goal(self):
-        
+        # This function can be looped till it returns true
+
         goal_distance = math.sqrt((self.drone_curr_x - self.goal_x) ** 2 + (self.drone_curr_y - self.goal_y) ** 2)
         
         if goal_distance > self._position_epsilon:
-            
+
             self.compute_velocity_to_goal(goal_distance)        
             return False
         
