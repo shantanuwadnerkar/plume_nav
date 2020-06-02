@@ -44,7 +44,6 @@ void VelocityTransform::cmd_vel_callback(const geometry_msgs::Twist::ConstPtr& m
 {
     ROS_INFO("OOP");
     x_vel = msg->linear.x;
-    y_vel = msg->linear.y;
     z_vel = msg->linear.z;
     yaw_rate = msg->angular.z;
     message_time = ros::Time::now();
@@ -85,6 +84,7 @@ int main(int argc, char** argv) {
     double dt = 0.01;
     double timeout = 0.55;
     double dx, dy, dtheta;
+    double max_vel = 1.0;
 
     ros::Time current_time;
     ros::Time previous_time;
@@ -110,9 +110,13 @@ int main(int argc, char** argv) {
         if (abs((current_time - vT.message_time).toSec()) >= timeout)
         {
             vT.x_vel = 0;
-            vT.y_vel = 0;
             vT.yaw_rate = 0;
         }
+
+        vT.y_vel = 0;
+
+        // Ensures velocity within limits
+        if (vT.x_vel != 0) vT.x_vel = (abs(vT.x_vel)/vT.x_vel) * std::min(abs(vT.x_vel), max_vel);
         
         // Calculate position from cmd_vel
         dx = (vT.x_vel * cos(yaw) - vT.y_vel * sin(yaw)) * dt;
