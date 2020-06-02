@@ -120,6 +120,14 @@ Visualization Manager:
       Use Timestamp: false
       Value: true
     - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /Anemometer/WindSensor_display
+      Name: Anemometer Sensor
+      Namespaces:
+        measured_wind_inverted: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
       Enabled: false
       Marker Topic: /PID/Sensor_display
       Name: PID Sensor

@@ -5,6 +5,8 @@
 
     <include file="$(find plume_environment)/launch/plume.launch" />
 
+    <include file="$(find plume_gsl)/launch/probability_mapping.launch" />
+
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find plume_gsl)/launch/rviz/demo.rviz" required="true" />
 
 </launch>

@@ -8,8 +8,6 @@
     <param name="sensor_accuracy" value="0.9"/>
 
     <node name="mapping" pkg="plume_gsl" type="mapping.py" output="screen">
-        
-                
         # Sensor params
         <param name="verbose" value="false"/>
         <param name="fixed_frame" value="map"/>
