@@ -2,7 +2,7 @@
 
 import rospy
 import actionlib
-from move_robot.msg import waypointAction, waypointGoal, waypointResult, waypointFeedback
+from crazyflie_control.msg import waypointAction, waypointGoal, waypointResult, waypointFeedback
 from geometry_msgs.msg import Point
 
 def define_waypoints():

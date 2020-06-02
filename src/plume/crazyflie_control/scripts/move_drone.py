@@ -10,7 +10,7 @@ from nav_msgs.msg import Odometry
 import rospy
 from tf.transformations import euler_from_quaternion
 
-from move_robot.msg import waypointAction, waypointGoal, waypointResult, waypointFeedback
+from crazyflie_control.msg import waypointAction, waypointGoal, waypointResult, waypointFeedback
         
 
 def handle_shutdown():
@@ -40,6 +40,8 @@ class MoveDrone:
         self.vel_pub = Twist()
 
         self.pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
+
+        self.sub = rospy.Subscriber("/base_pose_ground_truth", Odometry, moveDrone.ground_truth_callback)
 
 
     def angular_difference(self, a, b):
@@ -94,6 +96,6 @@ if __name__ == "__main__":
 
     moveDrone = MoveDrone()
 
-    sub = rospy.Subscriber("/base_pose_ground_truth", Odometry, moveDrone.ground_truth_callback)
+    server = actionlib.SimpleActionServer('waypoints', waypointAction, moveDrone.waypoint_action_callback, False)
     
     rospy.spin()
