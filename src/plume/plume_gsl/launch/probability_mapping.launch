@@ -8,8 +8,6 @@
     <param name="sensor_accuracy" value="0.9"/>
 
     <node name="mapping" pkg="plume_gsl" type="mapping.py" output="screen">
-        
-                
         # Sensor params
         <param name="verbose" value="false"/>
         <param name="fixed_frame" value="map"/>
@@ -19,8 +17,8 @@
     </node>
 
     <node pkg="plume_gsl" type="source_from_map.py" name="source_from_map"/>
-    <node pkg="rqt_plot" type="rqt_plot" name="Concentration" args="/concentration/data"/>
-    <node pkg="rosbag" type="record" name="rosbagger" args="record -o $(find plume_tools)/bagfiles/ /base_pose_ground_truth /concentration /Anemometer/WindSensor_reading /max_probability"/>
+    <!-- <node pkg="rqt_plot" type="rqt_plot" name="Concentration" args="/concentration/data"/> -->
+    <!-- <node pkg="rosbag" type="record" name="rosbagger" args="record -o $(find plume_tools)/bagfiles/ /base_pose_ground_truth /concentration /Anemometer/WindSensor_reading /max_probability"/> -->
     
     <!-- The robot starts moving to this point. -->
     <!-- Comment this line to prevent the robot motion -->
