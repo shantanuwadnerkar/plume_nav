@@ -130,6 +130,7 @@ class Prob_Mapping:
             odor_req = rospy.ServiceProxy('odor_value', GasPosition)
         else:
             sensor_sub = rospy.Subscriber("/PID/Sensor_reading", gas_sensor, self.sensor_callback)
+            rospy.wait_for_message("/PID/Sensor_reading", gas_sensor, rospy.Duration(4.0))
         
         
         # Get grid parameters
