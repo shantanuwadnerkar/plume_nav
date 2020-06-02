@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import math
 import sys
 
@@ -14,11 +16,15 @@ from tf.transformations import euler_from_quaternion
 
 class Metaheuristic:
     def __init__(self):
-        self.simulation_time = 0.0
+        self.simulation_time = 1.0
 
-        self.drone_x = 0.0
-        self.drone_y = 0.0
-        self.drone_heading = 0.0
+        try:
+            self.drone_x = rospy.get_param("/crazyflie_pose_transform/drone_spawn_x")
+            self.drone_y = rospy.get_param("/crazyflie_pose_transform/drone_spawn_y")
+            self.drone_z = rospy.get_param("/crazyflie_pose_transform/drone_spawn_z")
+            self.drone_heading = rospy.get_param("/crazyflie_pose_transform/drone_spawn_heading")
+        except KeyError:
+            print("HELP!!!")
 
         self.concentration_curr = 0.0
         self.concentration_prev = 0.0
@@ -34,21 +40,27 @@ class Metaheuristic:
         # Define some epsilon based on the sensor configuration
         # Random value. Change later
         self._concentration_epsilon = 1e-4
-        
+
         # Define some lamba. Based on what?
         # Random value. Change later
         self._probability_threshold = 1e-4
 
         self._move_step = 0.5
 
-        self.waypoint_client = actionlib.SimpleActionClient('waypoints', waypointAction)
-        self.waypoint_client.wait_for_server()
+        self.waypoint_client = actionlib.SimpleActionClient('waypoint', waypointAction)
+        # self.waypoint_client.wait_for_server()
         self.goal = waypointGoal()
+
+        self.waypoint_x_prev = 0.0
+        self.waypoint_y_prev = 0.0
+        self.waypoint_z_prev = 0.0
+        self.waypoint_heading_prev = 0.5
 
         self.waypoint_x = 0.0
         self.waypoint_y = 0.0
         self.waypoint_z = 3.0
-        self.waypoint_heading = self.getInitialHeuristic()
+        self.waypoint_heading = 1.0
+        # self.waypoint_heading = self.getInitialHeuristic()
         
         self.has_reached_waypoint = True
         # Start with some initial guess. How?
@@ -60,7 +72,9 @@ class Metaheuristic:
         if self.has_reached_waypoint:
             # Substract the current sensor reading from the previous one
             concentration_change = self.concentration_curr - self.concentration_prev
-
+            self.has_reached_waypoint = False
+            rospy.loginfo(self.has_reached_waypoint)
+            rospy.loginfo(concentration_change)
             if concentration_change >= self._concentration_epsilon:
                 # If the concentration is higher than or equal to epsilon, continue in the same direction
                 self.sendCurrentHeuristic()
@@ -72,15 +86,15 @@ class Metaheuristic:
                     self.sendCurrentHeuristic()
                 else:
                     self.sendNewHeuristic()
-                    pass
-
 
 
     def drone_position_callback(self, msg):
         self.drone_x = msg.pose.pose.position.x
         self.drone_y = msg.pose.pose.position.y
-        rot_q = msg.pose.pose.position.orientation
+        rot_q = msg.pose.pose.orientation
         _, _, self.drone_heading = euler_from_quaternion([rot_q.x, rot_q.y, rot_q.z, rot_q.w])
+        strr = self.drone_x, self.drone_y, self.drone_heading
+        # rospy.loginfo(strr)
 
 
     def wind_callback(self, msg):
@@ -96,6 +110,8 @@ class Metaheuristic:
         self.max_source_prob_x = msg.x
         self.max_source_prob_y = msg.y
         self.max_source_prob_z = msg.z
+        strr = self.max_source_prob_x, self.max_source_prob_y, self.max_source_prob_z
+        # rospy.loginfo(strr)
 
 
     def isSource(self):
@@ -107,7 +123,7 @@ class Metaheuristic:
 
 
     def getInitialHeuristic(self):
-        pass
+        self.waypoint_heading = math.atan2((self.max_source_prob_y - self.drone_y) / (self.max_source_prob_x - self.drone_x))
 
 
     def sendNewHeuristic(self):
@@ -125,7 +141,6 @@ class Metaheuristic:
 
             # and update simulation_time
             # Send a goal to waypoint action server 
-            pass
         # Store the current sensor reading as the previous sensor reading
 
 
@@ -133,11 +148,13 @@ class Metaheuristic:
         self.waypoint_x = self._move_step*math.cos(self.waypoint_heading) + self.waypoint_x_prev
         self.waypoint_y = self._move_step*math.sin(self.waypoint_heading)+ self.waypoint_y_prev
         self.sendWaypoint(self.waypoint_x,self.waypoint_y,self.waypoint_z)
-    
+
+
     def sendWaypoint(self,x,y,z):
         goal = Point(x,y,z)
         self.waypoint_client.send_goal(goal, feedback_cb=self.actionFeedback)
-        
+
+
     def actionFeedback(self):
         pass
 
@@ -150,24 +167,37 @@ class Metaheuristic:
         pass
 
 
+def testMetaheuristic():
+    velocity_publisher = rospy.Publisher("cmd_vel", Twist, queue_size=10)
+    velocity_msg = Twist()
+    velocity_msg.linear.x = -0.3
+    velocity_publisher.publish(velocity_msg)
+
+
 if __name__ == "__main__":
-    rospy.init_node("heuristic")
+    try:
+        rospy.init_node("heuristic")
 
-    # Publish next waypoint in this node. This waypoint will be used by a waypoint manager to publish to cmd_vel
-    # Change the topic name and topic type to something sensible
-    waypoint_pub = rospy.Publisher("waypoint", Point, queue_size=10)
+        # Publish next waypoint in this node. This waypoint will be used by a waypoint manager to publish to cmd_vel
+        # Change the topic name and topic type to something sensible
+        waypoint_pub = rospy.Publisher("waypoint", Point, queue_size=10)
+        print("creating obj")
+        mh = Metaheuristic()
+        print("created obj")
+        # Current position and speed
+        rospy.Subscriber("base_pose_ground_truth", Odometry, callback=mh.drone_position_callback)
 
-    mh = Metaheuristic()
+        # subscribe to concentration_reading
+        rospy.Subscriber("PID/Sensor_reading", gas_sensor, callback=mh.concentration_callback)
 
-    # Current position and speed
-    rospy.Subscriber("/base_pose_ground_truth", Odometry, callback=mh.drone_position_callback)
+        # Subscribe to Anemometer - get wind data
+        rospy.Subscriber("Anemometer/WindSensor_reading", anemometer, callback=mh.wind_callback)
 
-    # subscribe to concentration_reading
-    rospy.Subscriber("PID/Sensor_reading", gas_sensor, callback=mh.concentration_callback)
+        rospy.Subscriber("max_probability", Point, callback=mh.max_source_probability_callback)
 
-    # Subscribe to Anemometer - get wind data
-    rospy.Subscriber("Anemometer/WindSensor_reading", anemometer, callback=mh.wind_callback)
+        while not rospy.is_shutdown():
+            if "--test" in sys.argv:
+                testMetaheuristic()
 
-    rospy.Subscriber("max_probability", Point, callback=mh.max_source_probability_callback)
-    
-    rospy.spin()
+    except rospy.ROSInterruptException:
+        pass
