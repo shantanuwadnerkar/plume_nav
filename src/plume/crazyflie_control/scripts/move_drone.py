@@ -1,5 +1,8 @@
 #! /usr/bin/env python
 
+''' A server that moves the drone to a specified waypoint
+'''
+
 import math
 import sys
 import time
@@ -31,9 +34,6 @@ class MoveDrone:
 
         self._velocity_gain = 2
         self._angular_gain = 0.5
-
-        # self.actionlib_server = actionlib.SimpleActionServer('waypoint_heuristic', waypointAction, self.waypoint_callback, False)
-        # self.actionlib_server.start()
 
         self.vel_msg = Twist()
 
