@@ -63,13 +63,13 @@ class Metaheuristic:
 
             if concentration_change >= self._concentration_epsilon:
                 # If the concentration is higher than or equal to epsilon, continue in the same direction
-                self.maintainHeuristic()
+                self.getCurrentHeuristic()
             else:
                 # else, find the probability that the current direction is right
                 maintain_direction_prob = math.exp((concentration_change - self._concentration_epsilon)/self.simulation_time)
                 
                 if maintain_direction_prob > self._probability_threshold:
-                    self.maintainHeuristic()
+                    self.getCurrentHeuristic()
                 else:
                     self.getNewHeuristic()
                     self.followDirection()
@@ -111,7 +111,7 @@ class Metaheuristic:
         self.waypoint_heading = math.atan2((self.max_source_prob_y - self.drone_y) / (self.max_source_prob_x - self.drone_x))
 
 
-    def maintainHeuristic(self):
+    def getCurrentHeuristic(self):
         if self.isSource():
             # stop. source located
             pass
