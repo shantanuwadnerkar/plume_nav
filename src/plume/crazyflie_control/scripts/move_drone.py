@@ -27,9 +27,19 @@ class MoveDrone:
         self.goal_y = 0.0
 
         self._position_epsilon = 1e-2
+        self._angle_epsilon = 1e-2
+
+        self._velocity_gain = 2
+        self._angular_gain = 0.5
+
+        self.has_reached_goal = False
 
         self.actionlib_server = actionlib.SimpleActionServer('waypoint_heuristic', waypointAction, self.waypoint_callback, False)
         self.actionlib_server.start()
+
+        self.vel_pub = Twist()
+
+        self.pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
 
 
     def angular_difference(self, a, b):
@@ -38,50 +48,44 @@ class MoveDrone:
         return difference
 
 
-    def compute_velocity_to_goal(self):
-        # goal_distance = math.sqrt((self.drone_curr_x - self.goal_x) ** 2 + (self.drone_curr_y - self.goal_y) ** 2)
-        # if self.has_reached_goal():
-        #     angle_to_goal = math.atan2((goal_y - y), (goal_x - x))
-        #     if abs(angle_to_goal - theta) > self._position_epsilon:
-        #         vel_msg.linear.x = 0
-        #         vel_msg.angular.z = 2 * self.angular_difference(theta, angle_to_goal)
-        #     else:
-        #         vel_msg.linear.x = 0.5 * goal_distance
-        #         vel_msg.angular.z = 0
-        #     return False
-        # else:
-        #     vel_msg.linear.x = 0
-        #     vel_msg.angular.z = 0
-        #     return True
-        pass
+    def publish_cmd_vel(self):
 
+        goal_distance = math.sqrt((self.drone_curr_x - self.goal_x) ** 2 + (self.drone_curr_y - self.goal_y) ** 2)
 
-    def has_reached_goal(self):
-        # Use the below formula or do it using goal_distance. Decide how.
-        if (abs(self.goal_x - self.drone_curr_x) < self._position_epsilon) and (abs(self.goal_y - self.drone_curr_y) < self._position_epsilon):
-            return True
+        if goal_distance > self._position_epsilon:
+
+            self.has_reached_goal = False
+
+            angle_to_goal = math.atan2((self.goal_y - self.drone_curr_y), (self.goal_x - self.drone_curr_x))
+        
+            if abs(angle_to_goal - self.drone_curr_heading) > self._angle_epsilon:
+                vel_msg.linear.x = 0
+                vel_msg.angular.z = self._velocity_gain * self.angular_difference(self.drone_curr_heading, angle_to_goal)
+            else:
+                vel_msg.linear.x = self._angular_gain * goal_distance
+                vel_msg.angular.z = 0
+
         else:
-            return False
+            vel_msg.linear.x = 0
+            vel_msg.angular.z = 0
+            self.has_reached_goal = True
+        
+        self.pub.publish(vel_msg)
 
 
-
-    def waypoint_callback(self, goal):
+    def waypoint_action_callback(self, goal):
         # IMP!!!!!!!!!!!!!!!
         # Assign goal here from goal msg
-        self.goal_x = 0.0
-        self.goal_y = 0.0
+        self.goal_x = goal.points[0].x
+        self.goal_y = goal.points[0].y
 
-        # handle failure to reach goal and/or preemption. Also, send feedback. Do this using has_reached_goal()
+        # handle failure to reach goal and/or preemption. Also, send feedback. Do this using has_reached_goal
 
     def ground_truth_callback(self, msg):
         self.drone_curr_x = msg.pose.pose.position.x
         self.drone_curr_y = msg.pose.pose.position.y
         rot_q = msg.pose.pose.position.orientation
         _, _, self.drone_curr_heading = euler_from_quaternion([rot_q.x, rot_q.y, rot_q.z, rot_q.w])
-
-
-    def publish_cmd_vel(self):
-        pass
 
 
 if __name__ == "__main__":
