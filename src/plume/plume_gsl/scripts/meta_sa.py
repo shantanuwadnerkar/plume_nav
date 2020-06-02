@@ -48,7 +48,7 @@ class Metaheuristic:
         self.waypoint_x = 0.0
         self.waypoint_y = 0.0
         self.waypoint_z = 3.0
-        self.waypoint_heading = self.getNewHeuristic()
+        self.waypoint_heading = self.getInitialHeuristic()
         
         self.has_reached_waypoint = True
         # Start with some initial guess. How?
@@ -63,16 +63,15 @@ class Metaheuristic:
 
             if concentration_change >= self._concentration_epsilon:
                 # If the concentration is higher than or equal to epsilon, continue in the same direction
-                self.getCurrentHeuristic()
+                self.sendCurrentHeuristic()
             else:
                 # else, find the probability that the current direction is right
                 maintain_direction_prob = math.exp((concentration_change - self._concentration_epsilon)/self.simulation_time)
                 
                 if maintain_direction_prob > self._probability_threshold:
-                    self.getCurrentHeuristic()
+                    self.sendCurrentHeuristic()
                 else:
-                    self.getNewHeuristic()
-                    self.followDirection()
+                    self.sendNewHeuristic()
                     pass
 
 
@@ -107,11 +106,16 @@ class Metaheuristic:
         return False
 
 
-    def getNewHeuristic(self):
+    def getInitialHeuristic(self):
+        pass
+
+
+    def sendNewHeuristic(self):
         self.waypoint_heading = math.atan2((self.max_source_prob_y - self.drone_y) / (self.max_source_prob_x - self.drone_x))
+        self.followDirection()
 
 
-    def getCurrentHeuristic(self):
+    def sendCurrentHeuristic(self):
         if self.isSource():
             # stop. source located
             pass
