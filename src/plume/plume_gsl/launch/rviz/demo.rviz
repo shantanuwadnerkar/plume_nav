@@ -109,6 +109,32 @@ Visualization Manager:
         Gas_Dispersion: true
       Queue Size: 100
       Value: true
+    - Alpha: 0.699999988079071
+      Class: rviz/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: true
+      Name: Probability Map
+      Topic: /mapping_viz
+      Unreliable: false
+      Use Timestamp: false
+      Value: true
+    - Class: rviz/Marker
+      Enabled: false
+      Marker Topic: /PID/Sensor_display
+      Name: PID Sensor
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: false
+    - Class: rviz/Marker
+      Enabled: false
+      Marker Topic: /MOX/Sensor_display
+      Name: MOX Sensor
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: false
     - Class: rviz/MarkerArray
       Enabled: true
       Marker Topic: /environment_cad_visualization
@@ -153,25 +179,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 22.020008087158203
+      Distance: 15.908670425415039
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 10.25157356262207
-        Y: 1.2758656740188599
-        Z: 6.244680881500244
+        X: 9.867597579956055
+        Y: 5.5257391929626465
+        Z: 2.8997926712036133
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5753985643386841
+      Pitch: 0.969796895980835
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.440415382385254
+      Yaw: 4.705421447753906
     Saved: ~
 Window Geometry:
   Displays:
