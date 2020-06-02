@@ -1,15 +1,17 @@
 #! /usr/bin/env python
 
-import rospy
-from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist, Point
 import math
 import time
-from tf.transformations import euler_from_quaternion
+
 import actionlib
+from geometry_msgs.msg import Twist, Point
+from nav_msgs.msg import Odometry
+import rospy
+from tf.transformations import euler_from_quaternion
+
 from move_robot.msg import waypointAction, waypointGoal, waypointResult, waypointFeedback
 
-x = 0; y =0; theta = 0
+x = 0; y = 0; theta = 0
 vel_msg = Twist()
 i = 0
 t = time.time()
