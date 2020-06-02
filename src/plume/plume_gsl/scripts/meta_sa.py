@@ -3,6 +3,8 @@ import sys
 
 import rospy
 
+import actionlib
+from crazyflie_control.msg import waypointGoal, waypointAction, waypointResult, waypointFeedback
 from geometry_msgs.msg import Twist, Point
 from nav_msgs.msg import Odometry
 from olfaction_msgs.msg import anemometer, gas_sensor
@@ -37,27 +39,42 @@ class Metaheuristic:
         # Random value. Change later
         self._probability_threshold = 1e-4
 
+        self._move_step = 0.5
+
+        self.waypoint_client = actionlib.SimpleActionClient('waypoints', waypointAction)
+        self.waypoint_client.wait_for_server()
+        self.goal = waypointGoal()
+
+        self.waypoint_x = 0.0
+        self.waypoint_y = 0.0
+        self.waypoint_z = 3.0
+        self.waypoint_heading = self.getNewHeuristic()
+        
+        self.has_reached_waypoint = True
         # Start with some initial guess. How?
 
 
     def concentration_callback(self, concentration_reading):
         self.concentration_curr = concentration_reading.raw
+        
+        if self.has_reached_waypoint:
+            # Substract the current sensor reading from the previous one
+            concentration_change = self.concentration_curr - self.concentration_prev
 
-        # Substract the current sensor reading from the previous one
-        concentration_change = self.concentration_curr - self.concentration_prev
-
-        if concentration_change >= self._concentration_epsilon:
-            # If the concentration is higher than or equal to epsilon, continue in the same direction
-            self.keepDirection()
-        else:
-            # else, find the probability that the current direction is right
-            maintain_direction_prob = math.exp((concentration_change - self._concentration_epsilon)/self.simulation_time)
-            
-            if maintain_direction_prob > self._probability_threshold:
-                self.keepDirection()
+            if concentration_change >= self._concentration_epsilon:
+                # If the concentration is higher than or equal to epsilon, continue in the same direction
+                self.maintainHeuristic()
             else:
-                self.getNewHeuristic()
-                pass
+                # else, find the probability that the current direction is right
+                maintain_direction_prob = math.exp((concentration_change - self._concentration_epsilon)/self.simulation_time)
+                
+                if maintain_direction_prob > self._probability_threshold:
+                    self.maintainHeuristic()
+                else:
+                    self.getNewHeuristic()
+                    self.followDirection()
+                    pass
+
 
 
     def drone_position_callback(self, msg):
@@ -91,18 +108,34 @@ class Metaheuristic:
 
 
     def getNewHeuristic(self):
-        pass
+        self.waypoint_heading = math.atan2((self.max_source_prob_y - self.drone_y) / (self.max_source_prob_x - self.drone_x))
 
 
-    def keepDirection(self):
+    def maintainHeuristic(self):
         if self.isSource():
             # stop. source located
             pass
         else:
             # keep following the current direction
+            self.followDirection()
+
             # and update simulation_time
+            # Send a goal to waypoint action server 
             pass
         # Store the current sensor reading as the previous sensor reading
+
+
+    def followDirection(self):
+        self.waypoint_x = self._move_step*math.cos(self.waypoint_heading) + self.waypoint_x_prev
+        self.waypoint_y = self._move_step*math.sin(self.waypoint_heading)+ self.waypoint_y_prev
+        self.sendWaypoint(self.waypoint_x,self.waypoint_y,self.waypoint_z)
+    
+    def sendWaypoint(self,x,y,z):
+        goal = Point(x,y,z)
+        self.waypoint_client.send_goal(goal, feedback_cb=self.actionFeedback)
+        
+    def actionFeedback(self):
+        pass
 
 
     def raster_search(self):
