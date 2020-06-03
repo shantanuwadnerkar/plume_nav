@@ -23,9 +23,11 @@ class Metaheuristic:
             self.drone_x = rospy.get_param("/crazyflie_pose_transform/drone_spawn_x")
             self.drone_y = rospy.get_param("/crazyflie_pose_transform/drone_spawn_y")
             self.drone_z = rospy.get_param("/crazyflie_pose_transform/drone_spawn_z")
-            # self.drone_heading = rospy.get_param("/crazyflie_pose_transform/drone_spawn_heading")
+            self.drone_heading = rospy.get_param("/crazyflie_pose_transform/drone_spawn_yaw")
         except KeyError:
             raise rospy.ROSInitException
+
+        print(self.drone_x, self.drone_y, self.drone_heading)
 
         self.concentration_curr = 0.0
         self.concentration_prev = 0.0
@@ -65,9 +67,9 @@ class Metaheuristic:
         self.waypoint_z_prev = self.drone_z
         self.waypoint_heading_prev = self.getNewWaypointHeading()
 
-        self.waypoint_x = 0.0
-        self.waypoint_y = 0.0
-        self.waypoint_z = 3.0
+        self.waypoint_x = self.drone_x
+        self.waypoint_y = self.drone_y
+        self.waypoint_z = self.drone_z
         self.waypoint_heading = self.getNewWaypointHeading()
         
         
@@ -85,7 +87,7 @@ class Metaheuristic:
             concentration_change = self.concentration_curr - self.concentration_prev
             rospy.loginfo("===================================================2")
             rospy.loginfo(self.has_reached_waypoint)
-            print("Concntration Change", concentration_change)
+            print("Concentration Change", concentration_change)
             if concentration_change >= self._concentration_epsilon:
                 rospy.loginfo("first if")
                 # If the concentration is higher than or equal to epsilon, continue in the same direction
@@ -93,10 +95,12 @@ class Metaheuristic:
             else:
                 # else, find the probability that the current direction is right
                 maintain_direction_prob = math.exp((concentration_change - self._concentration_epsilon)/self.simulation_time)
-                
+
                 if maintain_direction_prob > self._probability_threshold:
+                    print("maintain_direction_prob")
                     self.sendCurrentHeuristic()
                 else:
+                    print("noooo maintain_direction_prob")
                     self.sendNewHeuristic()
 
             self.waypoint_x_prev = self.waypoint_x
@@ -125,6 +129,7 @@ class Metaheuristic:
     def max_source_probability_callback(self, msg):
         self.skip_max_source_probability_msg_count += 1
         if self.skip_max_source_probability_msg_count > self.skip_max_source_probability_msg:
+            print("max_source_probability_callback")
             self.max_source_prob_x = msg.x
             self.max_source_prob_y = msg.y
             self.max_source_prob_z = msg.z
@@ -163,6 +168,7 @@ class Metaheuristic:
         rospy.loginfo("sendCurrentHeuristic")
         if self.isSource():
             # stop. source located
+            rospy.loginfo("source")
             pass
         else:
             # keep following the current direction
