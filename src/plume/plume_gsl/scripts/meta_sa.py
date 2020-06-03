@@ -16,15 +16,16 @@ from tf.transformations import euler_from_quaternion
 
 class Metaheuristic:
     def __init__(self):
+        # catch errors for simulation_time or initialise it to an appropriate value
         self.simulation_time = 1.0
-
+        # drone_spawn_heading is not yet added to rosparam
         try:
             self.drone_x = rospy.get_param("/crazyflie_pose_transform/drone_spawn_x")
             self.drone_y = rospy.get_param("/crazyflie_pose_transform/drone_spawn_y")
             self.drone_z = rospy.get_param("/crazyflie_pose_transform/drone_spawn_z")
-            self.drone_heading = rospy.get_param("/crazyflie_pose_transform/drone_spawn_heading")
+            # self.drone_heading = rospy.get_param("/crazyflie_pose_transform/drone_spawn_heading")
         except KeyError:
-            print("HELP!!!")
+            raise rospy.ROSInitException
 
         self.concentration_curr = 0.0
         self.concentration_prev = 0.0
@@ -32,50 +33,61 @@ class Metaheuristic:
         self.wind_speed = 0.0
         self.wind_direction = 0.0
 
-        self.max_source_prob_x = 0.0
-        self.max_source_prob_y = 0.0
-        self.max_source_prob_z = 0.0
-        
+        # This first initial readings from the sensor should be ignored as
+        # they are very variant and the plume might not have reached the drone
+        # in certain conditions. Assign the max probability of source as the
+        # position of drone.
+        self.max_source_prob_x = self.drone_x
+        self.max_source_prob_y = self.drone_y
+        self.max_source_prob_z = self.drone_z
+
         self._position_epsilon = 1e-4
         # Define some epsilon based on the sensor configuration
         # Random value. Change later
-        self._concentration_epsilon = 1e-4
+        self._concentration_epsilon = 1e-1
 
         # Define some lamba. Based on what?
         # Random value. Change later
         self._probability_threshold = 1e-4
 
+        self.has_reached_waypoint = True
         self._move_step = 0.5
+        self.skip_max_source_probability_msg = 0
+        self.skip_max_source_probability_msg_count = 0
 
         self.waypoint_client = actionlib.SimpleActionClient('waypoint', waypointAction)
         # self.waypoint_client.wait_for_server()
         self.goal = waypointGoal()
 
-        self.waypoint_x_prev = 0.0
-        self.waypoint_y_prev = 0.0
-        self.waypoint_z_prev = 0.0
-        self.waypoint_heading_prev = 0.5
+        # Previous waypoint would be the place where the drone is currently at
+        self.waypoint_x_prev = self.drone_x
+        self.waypoint_y_prev = self.drone_y
+        self.waypoint_z_prev = self.drone_z
+        self.waypoint_heading_prev = self.getNewWaypointHeading()
 
         self.waypoint_x = 0.0
         self.waypoint_y = 0.0
         self.waypoint_z = 3.0
-        self.waypoint_heading = 1.0
-        # self.waypoint_heading = self.getInitialHeuristic()
+        self.waypoint_heading = self.getNewWaypointHeading()
         
-        self.has_reached_waypoint = True
+        
         # Start with some initial guess. How?
 
 
     def concentration_callback(self, concentration_reading):
-        self.concentration_curr = concentration_reading.raw
-        
+        try:
+            self.concentration_curr = concentration_reading.raw
+        except rospy.ROSInterruptException:
+            raise rospy.ROSInterruptException
+        rospy.loginfo("===================================================1")
         if self.has_reached_waypoint:
             # Substract the current sensor reading from the previous one
             concentration_change = self.concentration_curr - self.concentration_prev
-            self.has_reached_waypoint = False
+            rospy.loginfo("===================================================2")
             rospy.loginfo(self.has_reached_waypoint)
-            rospy.loginfo(concentration_change)
+            print("Concntration Change", concentration_change)
             if concentration_change >= self._concentration_epsilon:
+                rospy.loginfo("first if")
                 # If the concentration is higher than or equal to epsilon, continue in the same direction
                 self.sendCurrentHeuristic()
             else:
@@ -86,6 +98,10 @@ class Metaheuristic:
                     self.sendCurrentHeuristic()
                 else:
                     self.sendNewHeuristic()
+
+            self.waypoint_x_prev = self.waypoint_x
+            self.waypoint_y_prev = self.waypoint_y
+            self.waypoint_z_prev = self.waypoint_z
 
 
     def drone_position_callback(self, msg):
@@ -107,31 +123,44 @@ class Metaheuristic:
 
 
     def max_source_probability_callback(self, msg):
-        self.max_source_prob_x = msg.x
-        self.max_source_prob_y = msg.y
-        self.max_source_prob_z = msg.z
-        strr = self.max_source_prob_x, self.max_source_prob_y, self.max_source_prob_z
-        # rospy.loginfo(strr)
+        self.skip_max_source_probability_msg_count += 1
+        if self.skip_max_source_probability_msg_count > self.skip_max_source_probability_msg:
+            self.max_source_prob_x = msg.x
+            self.max_source_prob_y = msg.y
+            self.max_source_prob_z = msg.z
+            # strr = self.max_source_prob_x, self.max_source_prob_y, self.max_source_prob_z
+            # rospy.loginfo(strr)
 
 
     def isSource(self):
         # If the current cell is the source, stop
         if abs(self.max_source_prob_x - self.drone_x) < self._position_epsilon and abs(self.max_source_prob_y - self.drone_y) < self._position_epsilon:
             return True
-
         return False
 
 
     def getInitialHeuristic(self):
-        self.waypoint_heading = math.atan2((self.max_source_prob_y - self.drone_y) / (self.max_source_prob_x - self.drone_x))
+        rospy.loginfo("getInitialHeuristic")
+        self.waypoint_heading = self.getNewWaypointHeading()
+
+
+    def getNewWaypointHeading(self):
+        rospy.loginfo("getNewWaypointHeading")
+        # If there is division by zero, return heading of zero angle
+        try:
+            heading = math.atan2((self.max_source_prob_y - self.drone_y) / (self.max_source_prob_x - self.drone_x))
+        except ZeroDivisionError:
+            heading = 0.0
+        return heading
 
 
     def sendNewHeuristic(self):
-        self.waypoint_heading = math.atan2((self.max_source_prob_y - self.drone_y) / (self.max_source_prob_x - self.drone_x))
+        self.waypoint_heading = self.getNewWaypointHeading()
         self.followDirection()
 
 
     def sendCurrentHeuristic(self):
+        rospy.loginfo("sendCurrentHeuristic")
         if self.isSource():
             # stop. source located
             pass
@@ -145,18 +174,25 @@ class Metaheuristic:
 
 
     def followDirection(self):
+        rospy.loginfo("follow direction")
         self.waypoint_x = self._move_step*math.cos(self.waypoint_heading) + self.waypoint_x_prev
         self.waypoint_y = self._move_step*math.sin(self.waypoint_heading)+ self.waypoint_y_prev
+        print("Waypoint", self.waypoint_x, self.waypoint_y)
         self.sendWaypoint(self.waypoint_x,self.waypoint_y,self.waypoint_z)
 
 
     def sendWaypoint(self,x,y,z):
+        # Send waypoint and set has_reached_waypoint to false. Set this back to true when the feedback from server comes true
+        self.has_reached_waypoint = False
         goal = Point(x,y,z)
-        self.waypoint_client.send_goal(goal, feedback_cb=self.actionFeedback)
+        # self.waypoint_client.send_goal(goal, feedback_cb=self.actionFeedback)
+        dur = rospy.Duration(secs=3)
+        rospy.sleep(dur)
+        self.has_reached_waypoint = True
 
 
     def actionFeedback(self):
-        pass
+        self.has_reached_waypoint = True
 
 
     def raster_search(self):
@@ -170,7 +206,7 @@ class Metaheuristic:
 def testMetaheuristic():
     velocity_publisher = rospy.Publisher("cmd_vel", Twist, queue_size=10)
     velocity_msg = Twist()
-    velocity_msg.linear.x = -0.3
+    velocity_msg.linear.x = -0.1
     velocity_publisher.publish(velocity_msg)
 
 
@@ -197,7 +233,10 @@ if __name__ == "__main__":
 
         while not rospy.is_shutdown():
             if "--test" in sys.argv:
-                testMetaheuristic()
+                try:
+                    testMetaheuristic()
+                except rospy.ROSInterruptException:
+                    break
 
     except rospy.ROSInterruptException:
         pass
