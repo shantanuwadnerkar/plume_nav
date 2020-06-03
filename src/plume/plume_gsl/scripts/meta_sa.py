@@ -56,7 +56,7 @@ class Metaheuristic:
         self.skip_max_source_probability_msg_count = 0
 
         self.waypoint_client = actionlib.SimpleActionClient('waypoint', waypointAction)
-        self.waypoint_client.wait_for_server()
+        # self.waypoint_client.wait_for_server()
         self.goal = waypointGoal()
 
         # Previous waypoint would be the place where the drone is currently at
