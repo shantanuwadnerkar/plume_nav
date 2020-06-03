@@ -103,7 +103,7 @@ if __name__ == "__main__":
 
     moveDrone = MoveDrone()
 
-    server = actionlib.SimpleActionServer('waypoints', waypointAction, moveDrone.waypoint_action_callback, False)
+    server = actionlib.SimpleActionServer('waypoint', waypointAction, moveDrone.waypoint_action_callback, False)
     server.start()
     
     rospy.spin()
