@@ -207,13 +207,6 @@ class Metaheuristic:
         pass
 
 
-def testMetaheuristic():
-    velocity_publisher = rospy.Publisher("cmd_vel", Twist, queue_size=10)
-    velocity_msg = Twist()
-    velocity_msg.linear.x = -0.1
-    velocity_publisher.publish(velocity_msg)
-
-
 if __name__ == "__main__":
     try:
         rospy.init_node("heuristic")
