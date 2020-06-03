@@ -9,7 +9,7 @@ from nav_msgs.msg import Odometry
 import rospy
 from tf.transformations import euler_from_quaternion
 
-from move_robot.msg import waypointAction, waypointGoal, waypointResult, waypointFeedback
+from crazyflie_control.msg import waypointAction, waypointGoal, waypointResult, waypointFeedback
 
 x = 0; y = 0; theta = 0
 vel_msg = Twist()

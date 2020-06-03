@@ -2,11 +2,11 @@
 
 import rospy
 import actionlib
-from move_robot.msg import waypointAction, waypointGoal, waypointResult, waypointFeedback
+from crazyflie_control.msg import waypointAction, waypointGoal, waypointResult, waypointFeedback
 from geometry_msgs.msg import Point
 
 def define_waypoints():
-    p = [Point(7,3,0),Point(3,3,0)]
+    p = [Point(7,3,0)]
     return p   
 
 def feedback_cb(feedback):

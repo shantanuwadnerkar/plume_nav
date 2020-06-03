@@ -4,7 +4,7 @@
     <param name="resolution" value="0.4"/>
     <param name="height" value="3"/>
     <param name="sigma_x" value="2"/>
-    <param name="sigma_y" value="2"/>
+    <param name="sigma_y" value="5"/>
     <param name="sensor_accuracy" value="0.9"/>
 
     <node name="mapping" pkg="plume_gsl" type="mapping.py" output="screen">
