@@ -33,7 +33,7 @@ class MoveDrone:
         self._angle_epsilon = 1e-2
 
         self._velocity_gain = 2
-        self._angular_gain = 0.5
+        self._angular_gain = 5
 
         self.vel_msg = Twist()
 
@@ -60,9 +60,9 @@ class MoveDrone:
         
             if abs(angle_to_goal - self.drone_curr_heading) > self._angle_epsilon:
                 self.vel_msg.linear.x = 0
-                self.vel_msg.angular.z = self._velocity_gain * self.angular_difference(self.drone_curr_heading, angle_to_goal)
+                self.vel_msg.angular.z = self._angular_gain * self.angular_difference(self.drone_curr_heading, angle_to_goal)
             else:
-                self.vel_msg.linear.x = self._angular_gain * goal_distance
+                self.vel_msg.linear.x = self._velocity_gain * goal_distance
                 self.vel_msg.angular.z = 0
 
         else:

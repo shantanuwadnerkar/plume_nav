@@ -11,7 +11,7 @@ import sys
 #from move_robot.msg import waypointAction, waypointGoal, waypointResult, waypointFeedback
 
 
-x = 0; y =0; theta = 0
+x = []; y = []; theta = []
 vel_msg = Twist()
 
 def callbackfn(msg):
@@ -60,7 +60,7 @@ def do_move():
     pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
     done = False
     
-    #rospy.wait_for_message("/cmd_vel", Twist)
+    rospy.wait_for_message("/base_pose_ground_truth", Odometry)
     r = rospy.Rate(10)
     i = 0
 
