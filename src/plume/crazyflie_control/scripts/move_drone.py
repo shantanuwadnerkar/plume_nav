@@ -33,7 +33,7 @@ class MoveDrone:
         self._angle_epsilon = 1e-2
 
         self._velocity_gain = 2
-        self._angular_gain = 5
+        self._angular_gain = 3
 
         self.vel_msg = Twist()
 

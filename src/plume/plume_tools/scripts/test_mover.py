@@ -35,11 +35,11 @@ def moving_controller(goal_x, goal_y):
         dist2goal = math.sqrt((x - goal_x)**2 + (y - goal_y)**2)
         if dist2goal > 0.05:
             angle_to_goal = math.atan2((goal_y - y), (goal_x - x))
-            if abs(angle_to_goal - theta) > 0.05:
+            if abs(angle_to_goal - theta) > 0.01:
                 vel_msg.linear.x = 0
-                vel_msg.angular.z = 2 * angdiff(theta, angle_to_goal)
+                vel_msg.angular.z = 3 * angdiff(theta, angle_to_goal)
             else:
-                vel_msg.linear.x = 0.5 * dist2goal
+                vel_msg.linear.x = 2 * dist2goal
                 vel_msg.angular.z = 0
             return False
         else:
