@@ -1,5 +1,8 @@
 #! /usr/bin/env python
 
+''' A server that moves the drone to a specified waypoint
+'''
+
 import math
 import sys
 import time
@@ -10,7 +13,7 @@ from nav_msgs.msg import Odometry
 import rospy
 from tf.transformations import euler_from_quaternion
 
-from move_robot.msg import waypointAction, waypointGoal, waypointResult, waypointFeedback
+from crazyflie_control.msg import waypointAction, waypointGoal, waypointResult, waypointFeedback
         
 
 def handle_shutdown():
@@ -32,14 +35,11 @@ class MoveDrone:
         self._velocity_gain = 2
         self._angular_gain = 0.5
 
-        self.has_reached_goal = False
-
-        self.actionlib_server = actionlib.SimpleActionServer('waypoint_heuristic', waypointAction, self.waypoint_callback, False)
-        self.actionlib_server.start()
-
-        self.vel_pub = Twist()
+        self.vel_msg = Twist()
 
         self.pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
+
+        self.sub = rospy.Subscriber("/base_pose_ground_truth", Odometry, self.ground_truth_callback)
 
 
     def angular_difference(self, a, b):
@@ -59,32 +59,41 @@ class MoveDrone:
             angle_to_goal = math.atan2((self.goal_y - self.drone_curr_y), (self.goal_x - self.drone_curr_x))
         
             if abs(angle_to_goal - self.drone_curr_heading) > self._angle_epsilon:
-                vel_msg.linear.x = 0
-                vel_msg.angular.z = self._velocity_gain * self.angular_difference(self.drone_curr_heading, angle_to_goal)
+                self.vel_msg.linear.x = 0
+                self.vel_msg.angular.z = self._velocity_gain * self.angular_difference(self.drone_curr_heading, angle_to_goal)
             else:
-                vel_msg.linear.x = self._angular_gain * goal_distance
-                vel_msg.angular.z = 0
+                self.vel_msg.linear.x = self._angular_gain * goal_distance
+                self.vel_msg.angular.z = 0
 
         else:
-            vel_msg.linear.x = 0
-            vel_msg.angular.z = 0
+            self.vel_msg.linear.x = 0
+            self.vel_msg.angular.z = 0
             self.has_reached_goal = True
         
-        self.pub.publish(vel_msg)
+        self.pub.publish(self.vel_msg)
 
 
     def waypoint_action_callback(self, goal):
-        # IMP!!!!!!!!!!!!!!!
-        # Assign goal here from goal msg
+        
+        self.has_reached_goal = False
+
         self.goal_x = goal.points[0].x
         self.goal_y = goal.points[0].y
+
+        result = waypointResult()
+
+        while not self.has_reached_goal:            
+            self.publish_cmd_vel()
+
+        result.succ_msg = "Reached"
+        server.set_succeeded(result)
 
         # handle failure to reach goal and/or preemption. Also, send feedback. Do this using has_reached_goal
 
     def ground_truth_callback(self, msg):
         self.drone_curr_x = msg.pose.pose.position.x
         self.drone_curr_y = msg.pose.pose.position.y
-        rot_q = msg.pose.pose.position.orientation
+        rot_q = msg.pose.pose.orientation
         _, _, self.drone_curr_heading = euler_from_quaternion([rot_q.x, rot_q.y, rot_q.z, rot_q.w])
 
 
@@ -94,6 +103,7 @@ if __name__ == "__main__":
 
     moveDrone = MoveDrone()
 
-    sub = rospy.Subscriber("/base_pose_ground_truth", Odometry, moveDrone.ground_truth_callback)
+    server = actionlib.SimpleActionServer('waypoints', waypointAction, moveDrone.waypoint_action_callback, False)
+    server.start()
     
     rospy.spin()
