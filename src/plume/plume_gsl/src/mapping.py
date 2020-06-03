@@ -21,6 +21,7 @@ import tf
 from tf.transformations import euler_from_quaternion
 from olfaction_msgs.msg import anemometer, gas_sensor
 import warnings
+from std_msgs.msg import Float64
 
 warnings.filterwarnings("error", "divide", RuntimeWarning)
 
@@ -123,6 +124,7 @@ class Prob_Mapping:
 
         # Probability mapping publisher
         prob_pub = rospy.Publisher("mapping_viz", OccupancyGrid, queue_size=10)
+        prob_val = rospy.Publisher("max_prob_val", Float64, queue_size=10)
         
         # Choose between service and topic
         if self.use_service_for_gas:
@@ -142,6 +144,7 @@ class Prob_Mapping:
         Sij     = np.zeros(grid.M)
         beta    = np.zeros(grid.M)
         gamma   = (1.0/grid.M) * np.ones(grid.M)
+        decimal_shifter = 1000
 
         # OccupancyGrid
         prob = OccupancyGrid()
@@ -208,15 +211,15 @@ class Prob_Mapping:
                                 np.exp((-deltay**2)/(2*deviation_y**2)) /\
                                      (2*np.pi*deviation_x*deviation_y)
                     
-                    try:
-                        Sij /= np.sum(Sij)
-                    except RuntimeWarning:
-                        rospy.logerr("All values of Sij = 0. sx and/or sy has to be changed")
-                    
-                    if detection:
-                        beta = beta + Sij
-                    else:
-                        gamma = gamma * (1 - grid.mu*Sij)
+                try:
+                    Sij /= np.sum(Sij)
+                except RuntimeWarning:
+                    rospy.logerr("All values of Sij = 0. sx and/or sy has to be changed")
+                
+                if detection:
+                    beta = beta + Sij
+                else:
+                    gamma = gamma * (1 - grid.mu*Sij)
             
             if self.L != K:
 
@@ -231,7 +234,7 @@ class Prob_Mapping:
 
                 # Probability map is scaled up by a factor to show the color in Rviz
                 # Occupancy map supports only integers from 0-100
-                prob.data = (alpha*1000).astype(np.int8).tolist()
+                prob.data = (alpha*decimal_shifter).astype(np.int8).tolist()
                 prob.data = [100 if x > 100 else x for x in prob.data]
 
             if self.verbose:
@@ -239,6 +242,7 @@ class Prob_Mapping:
                     rospy.loginfo("self.L = %d",self.L)
             
             prob_pub.publish(prob)
+            prob_val.publish(Float64(np.max(alpha)))
             
             r.sleep()
 
