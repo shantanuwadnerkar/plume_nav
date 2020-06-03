@@ -56,7 +56,7 @@ class Metaheuristic:
         self.skip_max_source_probability_msg_count = 0
 
         self.waypoint_client = actionlib.SimpleActionClient('waypoint', waypointAction)
-        # self.waypoint_client.wait_for_server()
+        self.waypoint_client.wait_for_server()
         self.goal = waypointGoal()
 
         # Previous waypoint would be the place where the drone is currently at
@@ -176,7 +176,7 @@ class Metaheuristic:
     def followDirection(self):
         rospy.loginfo("follow direction")
         self.waypoint_x = self._move_step*math.cos(self.waypoint_heading) + self.waypoint_x_prev
-        self.waypoint_y = self._move_step*math.sin(self.waypoint_heading)+ self.waypoint_y_prev
+        self.waypoint_y = self._move_step*math.sin(self.waypoint_heading) + self.waypoint_y_prev
         print("Waypoint", self.waypoint_x, self.waypoint_y)
         self.sendWaypoint(self.waypoint_x,self.waypoint_y,self.waypoint_z)
 
@@ -184,15 +184,19 @@ class Metaheuristic:
     def sendWaypoint(self,x,y,z):
         # Send waypoint and set has_reached_waypoint to false. Set this back to true when the feedback from server comes true
         self.has_reached_waypoint = False
-        goal = Point(x,y,z)
-        # self.waypoint_client.send_goal(goal, feedback_cb=self.actionFeedback)
-        dur = rospy.Duration(secs=3)
-        rospy.sleep(dur)
+        goal = [Point(x,y,z)]
+        self.waypoint_client.send_goal(goal, feedback_cb=self.actionFeedback, done_cb=self.actionDone)
+        # dur = rospy.Duration(secs=3)
+        # rospy.sleep(dur)
+        # self.has_reached_waypoint = True
+
+
+    def actionDone(self, status, result):
         self.has_reached_waypoint = True
 
 
     def actionFeedback(self):
-        self.has_reached_waypoint = True
+        pass
 
 
     def raster_search(self):
@@ -216,7 +220,7 @@ if __name__ == "__main__":
 
         # Publish next waypoint in this node. This waypoint will be used by a waypoint manager to publish to cmd_vel
         # Change the topic name and topic type to something sensible
-        waypoint_pub = rospy.Publisher("waypoint", Point, queue_size=10)
+        # waypoint_pub = rospy.Publisher("waypoint", Point, queue_size=10)
         print("creating obj")
         mh = Metaheuristic()
         print("created obj")
