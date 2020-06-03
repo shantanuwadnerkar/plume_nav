@@ -175,8 +175,8 @@ class Metaheuristic:
 
     def followDirection(self):
         rospy.loginfo("follow direction")
-        self.waypoint_x = self._move_step*math.cos(self.waypoint_heading) + self.waypoint_x_prev
-        self.waypoint_y = self._move_step*math.sin(self.waypoint_heading) + self.waypoint_y_prev
+        self.waypoint_x = self._move_step * math.cos(self.waypoint_heading) + self.waypoint_x_prev
+        self.waypoint_y = self._move_step * math.sin(self.waypoint_heading) + self.waypoint_y_prev
         print("Waypoint", self.waypoint_x, self.waypoint_y)
         self.sendWaypoint(self.waypoint_x,self.waypoint_y,self.waypoint_z)
 
