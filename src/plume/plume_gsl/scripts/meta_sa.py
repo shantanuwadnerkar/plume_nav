@@ -184,7 +184,7 @@ class Metaheuristic:
     def sendWaypoint(self,x,y,z):
         # Send waypoint and set has_reached_waypoint to false. Set this back to true when the feedback from server comes true
         self.has_reached_waypoint = False
-        goal = [Point(x,y,z)]
+        goal = waypointGoal([Point(x,y,z)])
         self.waypoint_client.send_goal(goal, feedback_cb=self.actionFeedback, done_cb=self.actionDone)
         # dur = rospy.Duration(secs=3)
         # rospy.sleep(dur)
