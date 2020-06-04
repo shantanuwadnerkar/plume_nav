@@ -9,7 +9,7 @@
   <node name="crazyflie_pose_transform" pkg="crazyflie_description" type="pose_transform">
     <rosparam command="load">
       drone_spawn_x: 15.0
-      drone_spawn_y: 10.0
+      drone_spawn_y: 5.0
       drone_spawn_z: 3.0
       drone_spawn_yaw: 0.0
     </rosparam>

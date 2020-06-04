@@ -18,6 +18,9 @@ class Metaheuristic:
     def __init__(self):
         # catch errors for simulation_time or initialise it to an appropriate value
         self.simulation_time = 1.0
+
+        self.source_reached = False
+
         # drone_spawn_heading is not yet added to rosparam
         try:
             self.drone_x = rospy.get_param("/crazyflie_pose_transform/drone_spawn_x")
@@ -54,12 +57,14 @@ class Metaheuristic:
 
         self.has_reached_waypoint = True
         self._move_step = 0.5
-        self.skip_max_source_probability_msg = 0
+
+        self.skipping_max_source_probability = True
+        self.skip_max_source_probability_msg = 5
         self.skip_max_source_probability_msg_count = 0
 
         self.waypoint_client = actionlib.SimpleActionClient('waypoint', waypointAction)
         self.waypoint_client.wait_for_server()
-        self.goal = waypointGoal()
+        self.waypointGoal = waypointGoal()
 
         # Previous waypoint would be the place where the drone is currently at
         self.waypoint_x_prev = self.drone_x
@@ -82,7 +87,7 @@ class Metaheuristic:
         except rospy.ROSInterruptException:
             raise rospy.ROSInterruptException
         rospy.loginfo("===================================================1")
-        if self.has_reached_waypoint:
+        if self.has_reached_waypoint and not self.source_reached:
             # Substract the current sensor reading from the previous one
             concentration_change = self.concentration_curr - self.concentration_prev
             rospy.loginfo("===================================================2")
@@ -130,6 +135,7 @@ class Metaheuristic:
         self.skip_max_source_probability_msg_count += 1
         if self.skip_max_source_probability_msg_count > self.skip_max_source_probability_msg:
             print("max_source_probability_callback")
+            self.skipping_max_source_probability = False
             self.max_source_prob_x = msg.x
             self.max_source_prob_y = msg.y
             self.max_source_prob_z = msg.z
@@ -155,7 +161,11 @@ class Metaheuristic:
         try:
             heading = math.atan2((self.max_source_prob_y - self.drone_y) / (self.max_source_prob_x - self.drone_x))
         except ZeroDivisionError:
-            heading = 0.0
+            # maybe try to initialise it in a different way. Right now it assumes the position of the source.
+            if self.skipping_max_source_probability:
+                heading = -math.pi
+            else:
+                self.source_reached = True
         return heading
 
 
@@ -190,8 +200,8 @@ class Metaheuristic:
     def sendWaypoint(self,x,y,z):
         # Send waypoint and set has_reached_waypoint to false. Set this back to true when the feedback from server comes true
         self.has_reached_waypoint = False
-        goal = waypointGoal([Point(x,y,z)])
-        self.waypoint_client.send_goal(goal, feedback_cb=self.actionFeedback, done_cb=self.actionDone)
+        self.waypointGoal = waypointGoal([Point(x,y,z)])
+        self.waypoint_client.send_goal(self.waypointGoal, feedback_cb=self.actionFeedback, done_cb=self.actionDone)
         # dur = rospy.Duration(secs=3)
         # rospy.sleep(dur)
         # self.has_reached_waypoint = True
