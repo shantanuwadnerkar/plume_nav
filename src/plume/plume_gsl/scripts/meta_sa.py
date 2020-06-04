@@ -157,15 +157,8 @@ class Metaheuristic:
 
     def getNewWaypointHeading(self):
         rospy.loginfo("getNewWaypointHeading")
-        # If there is division by zero, return heading of zero angle
-        try:
-            heading = math.atan2((self.max_source_prob_y - self.drone_y) / (self.max_source_prob_x - self.drone_x))
-        except ZeroDivisionError:
-            # maybe try to initialise it in a different way. Right now it assumes the position of the source.
-            if self.skipping_max_source_probability:
-                heading = -math.pi
-            else:
-                self.source_reached = True
+
+        heading = math.atan2((self.max_source_prob_y - self.drone_y), (self.max_source_prob_x - self.drone_x))
         return heading
 
 
