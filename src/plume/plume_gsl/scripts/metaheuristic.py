@@ -5,6 +5,7 @@ import sys
 from collections import namedtuple, deque
 import numpy as np
 import random
+from json import loads
 
 import rospy
 
@@ -30,11 +31,20 @@ class Metaheuristic:
             self.drone_z = rospy.get_param("/crazyflie_pose_transform/drone_spawn_z")
             self.drone_heading = rospy.get_param("/crazyflie_pose_transform/drone_spawn_yaw")
             self.algorithm = rospy.get_param("~/Algorithm",1)
+            xlims = rospy.get_param("xlims","[0,20]")
+            ylims = rospy.get_param("ylims","[0,20]")
         except KeyError:
             raise rospy.ROSInitException
-
-         # Waypoint resolution parameters
+        
         Range = namedtuple("Range", "min max")
+
+        xlims = loads(xlims)
+        ylims = loads(ylims)
+        
+        self.xbounds = Range(xlims[0], xlims[1])
+        self.ybounds = Range(ylims[0], ylims[1])
+        
+        # Waypoint resolution parameters        
         self.waypoint_res = 0.5  
 
         # The following are to change the waypoint_resolution based on the concentration      
@@ -85,8 +95,11 @@ class Metaheuristic:
         self.maintain_dir_prob = 0.4
 
         self.has_reached_waypoint = True
-        
-        self.max_concentration = Point()
+        self.moving_to_source = False
+        self.source_reached = False
+                
+        self.max_conc_at = Point()
+        self.max_conc_val = None
         self.concentration_hist = []
 
         self.raster_scan_complete = False
@@ -96,6 +109,9 @@ class Metaheuristic:
 
     def actionDone(self, status, result):
         self.has_reached_waypoint = True
+        
+        if self.moving_to_source == True:
+            self.source_reached = True
 
     def calcWaypointSlopeIntercept(self):
         self.waypoint_slope = (self.res_range.max - self.res_range.min)/(1/self.conc_range.min - 1/self.conc_range.max)
@@ -125,8 +141,14 @@ class Metaheuristic:
         self.waypoint_x = self.waypoint_res * math.cos(self.waypoint_heading) + self.waypoint_x_prev
         self.waypoint_y = self.waypoint_res * math.sin(self.waypoint_heading) + self.waypoint_y_prev
         print("Waypoint", self.waypoint_x, self.waypoint_y)
-        self.sendWaypoint(self.waypoint_x,self.waypoint_y,self.waypoint_z)
 
+        if not self.xbounds.min < self.waypoint_x < self.xbounds.max \
+                or not self.ybounds.min < self.waypoint_y < self.ybounds.max:
+            rospy.logwarn("Map boundary reached. Max concentration found at (%f,%f)",self.max_conc_at.x, self.max_conc_at.y)
+
+            self.moveToSource()        
+
+        self.sendWaypoint(self.waypoint_x,self.waypoint_y,self.waypoint_z)
 
     def getInitialHeuristic(self):
         if len(self.wind_hist) == self.len_wind_hist:
@@ -135,7 +157,8 @@ class Metaheuristic:
             
             elif self.algorithm == self.ZIGZAG:
                 if random.random() >= 0.5:
-                self.alpha *= -1            
+                    self.alpha *= -1            
+                
                 self.waypoint_heading = math.pi + np.mean(self.wind_hist) + self.alpha
             return True
         else:
@@ -152,9 +175,7 @@ class Metaheuristic:
         
         elif self.algorithm == self.ZIGZAG:
             self.alpha *= -1
-            self.waypoint_heading = math.pi + np.mean(self.wind_hist) + self.alpha
-
-        
+            self.waypoint_heading = math.pi + np.mean(self.wind_hist) + self.alpha        
 
     def getNormalHeuristic(self):
         if self.algorithm == self.FOLLOW_WIND:
@@ -165,7 +186,19 @@ class Metaheuristic:
     def maxSourceProbabilityCallback(self, msg):
         self.max_source_prob_x = msg.x
         self.max_source_prob_y = msg.y
-        self.max_source_prob_z = msg.z  
+        self.max_source_prob_z = msg.z
+
+    def moveToSource(self):
+        
+        if self.algorithm == self.FOLLOW_WIND:
+                self.moving_to_source = True
+
+        if self.algorithm == self.ZIGZAG:
+            # Should implement raster scan here before FOLLOW_WIND
+            self.algorithm = self.FOLLOW_WIND
+        
+        self.waypoint_x, self.waypoint_y = self.max_conc_at.x, self.max_conc_at.y
+
 
     def normalizing_angle(self, angle):
         while angle <= -math.pi:
@@ -196,7 +229,6 @@ class Metaheuristic:
 
         except IndexError:
             self.waypoint_res = self.res_range.max
-        
     
     def windCallback(self, msg):        
         self.listener.waitForTransform(self.anemo_frame,self.fixed_frame, rospy.Time(), rospy.Duration(5.0))
@@ -218,8 +250,19 @@ class Metaheuristic:
         if not self.raster_scan_complete:
             # do raster
             pass
+
+        if self.source_reached:
+            rospy.loginfo_once("Source declared at (%f,%f)",self.drone_x, self.drone_y)
+            return
+
+        concentration = msg.raw
+
+        # Record of maximum concentration
+        if concentration > self.max_conc_val:
+            self.max_conc_val = concentration
+            self.max_conc_at.x, self.max_conc_at.y = self.drone_x, self.drone_y
         
-        self.concentration_hist.append(msg.raw)
+        self.concentration_hist.append(concentration)
 
         if not self.waypoint_x:
             if self.getInitialHeuristic():
@@ -272,8 +315,6 @@ class Metaheuristic:
 if __name__ == "__main__":
     try:
         rospy.init_node("metaheuristic")
-
-        # waypoint_pub = rospy.Publisher("waypoint", Point, queue_size=10)
 
         mh = Metaheuristic()
 
