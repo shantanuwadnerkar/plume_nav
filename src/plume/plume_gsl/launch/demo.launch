@@ -1,6 +1,9 @@
 <?xml version="1.0"?>
 
 <launch>
+    <param name="fixed_frame" value="map"/>
+    <param name="anemometer_frame" value="anemometer_frame"/>
+    
     <include file="$(find crazyflie_description)/launch/crazyflie2_rviz.launch" />
 
     <include file="$(find plume_environment)/launch/plume.launch" />
