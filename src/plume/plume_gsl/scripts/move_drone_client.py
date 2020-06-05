@@ -23,13 +23,8 @@ class MoveDroneClient:
         self._waypoint_resolution = 0.5
         self._position_epsilon = 1e-4
 
-        self.waypoint_x_prev = self.drone_x
-        self.waypoint_y_prev = self.drone_y
-        self.waypoint_z_prev = self.drone_z
-        self.waypoint_heading_prev = self.drone_heading
-        self.waypoint_x = self.drone_x
-        self.waypoint_y = self.drone_y
-        self.waypoint_z = self.drone_z
+        self.waypoint_prev = self.get_drone_position()
+        self.waypoint = self.get_drone_position()
         self.waypoint_heading = self.drone_heading
 
 
@@ -51,12 +46,12 @@ class MoveDroneClient:
 
 
     def generateWaypoint(self, waypoint_heading):
-        self.waypoint_x = self._waypoint_resolution * math.cos(waypoint_heading) + self.waypoint_x_prev
-        self.waypoint_y = self._waypoint_resolution * math.sin(waypoint_heading) + self.waypoint_y_prev
-        print("Waypoint", self.waypoint_x, self.waypoint_y)
-        self.waypoint_x_prev = self.waypoint_x
-        self.waypoint_y_prev = self.waypoint_y
-        return (self.waypoint_x, self.waypoint_y, self.waypoint_z)
+        waypoint_x = self._waypoint_resolution * math.cos(waypoint_heading) + self.waypoint_prev[0]
+        waypoint_y = self._waypoint_resolution * math.sin(waypoint_heading) + self.waypoint_prev[1]
+        waypoint_z = self.get_drone_position()[2]
+        self.waypoint = (waypoint_x, waypoint_y, waypoint_z)
+        print("Waypoint", self.waypoint)
+        return (self.waypoint[0], self.waypoint[1], self.waypoint[2])
 
 
     def sendWaypoint(self, waypoint, wait_for_result=True):
@@ -67,6 +62,7 @@ class MoveDroneClient:
         self.waypoint_client.send_goal(self.waypointGoal, done_cb=self.actionDone)
         if wait_for_result:
             self.waypoint_client.wait_for_result()
+        self.waypoint_prev = self.get_drone_position()
 
 
     def actionDone(self, status, result):
