@@ -16,7 +16,7 @@ from move_drone_client import MoveDroneClient
 
 
 class RasterScan:
-    def __init__(self, scan_distance):
+    def __init__(self, scan_distance=2):
         self.move_drone_client = MoveDroneClient()
 
         self.wind_speed = 0.0
@@ -143,7 +143,7 @@ class RasterScan:
 if __name__=="__main__":
     rospy.init_node("raster_scan")
 
-    rs = RasterScan(0.4)
+    rs = RasterScan(1)
     rs.startRasterScan()
 
     rospy.spin()
