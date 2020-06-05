@@ -21,11 +21,15 @@ from tf.transformations import euler_from_quaternion
 class Metaheuristic:
     def __init__(self):
         # drone_spawn_heading is not yet added to rosparam
+        self.FOLLOW_WIND = 0
+        self.ZIGZAG = 1
+
         try:
             self.drone_x = rospy.get_param("/crazyflie_pose_transform/drone_spawn_x")
             self.drone_y = rospy.get_param("/crazyflie_pose_transform/drone_spawn_y")
             self.drone_z = rospy.get_param("/crazyflie_pose_transform/drone_spawn_z")
             self.drone_heading = rospy.get_param("/crazyflie_pose_transform/drone_spawn_yaw")
+            self.algorithm = rospy.get_param("~/Algorithm",1)
         except KeyError:
             raise rospy.ROSInitException
 
@@ -61,6 +65,9 @@ class Metaheuristic:
         self.Temp = 100.0
         self.delta_Temp = 2.0
 
+        # Zig-zag angle
+        self.alpha = math.radians(35)
+
         self.source_reached = False        
 
         self._position_epsilon = 1e-4
@@ -75,7 +82,7 @@ class Metaheuristic:
         # Random value. Change later
         self._probability_threshold = 1e-4
 
-        self.maintain_dir_prob = 0.65
+        self.maintain_dir_prob = 0.4
 
         self.has_reached_waypoint = True
         
@@ -94,6 +101,12 @@ class Metaheuristic:
         self.waypoint_slope = (self.res_range.max - self.res_range.min)/(1/self.conc_range.min - 1/self.conc_range.max)
         self.waypoint_intercept = self.res_range.min - self.waypoint_slope*(1/self.conc_range.max)
 
+    def changeTemperature(self):
+        # Change temperature
+            self.Temp -= self.delta_Temp
+            if self.Temp <= 0:
+                rospy.logerr("Temperature has reduced below Zero")
+    
     def checkGradient(self):
         L = len(self.concentration_hist)
         if L < 2:
@@ -117,22 +130,37 @@ class Metaheuristic:
 
     def getInitialHeuristic(self):
         if len(self.wind_hist) == self.len_wind_hist:
-            self.waypoint_heading = math.pi + np.mean(self.wind_hist)
+            if self.algorithm == self.FOLLOW_WIND:
+                self.waypoint_heading = math.pi + np.mean(self.wind_hist)
+            
+            elif self.algorithm == self.ZIGZAG:
+                if random.random() >= 0.5:
+                self.alpha *= -1            
+                self.waypoint_heading = math.pi + np.mean(self.wind_hist) + self.alpha
             return True
         else:
             return False
     
     def getNewHeuristic(self):
-        # Choose a random perpendicular-to-wind direction
-        if random.random() >= 0.5:
-            dir = 1
-        else:
-            dir = -1
+        if self.algorithm == self.FOLLOW_WIND:
+            # Choose a random perpendicular-to-wind direction
+            if random.random() >= 0.5:
+                dir = 1
+            else:
+                dir = -1
+            self.waypoint_heading = dir*math.pi/2 + np.mean(self.wind_hist)
+        
+        elif self.algorithm == self.ZIGZAG:
+            self.alpha *= -1
+            self.waypoint_heading = math.pi + np.mean(self.wind_hist) + self.alpha
 
-        self.waypoint_heading = dir*math.pi/2 + np.mean(self.wind_hist)
+        
 
     def getNormalHeuristic(self):
-        self.waypoint_heading = math.pi + np.mean(self.wind_hist)
+        if self.algorithm == self.FOLLOW_WIND:
+            self.waypoint_heading = math.pi + np.mean(self.wind_hist)
+        elif self.algorithm == self.ZIGZAG:
+            pass
 
     def maxSourceProbabilityCallback(self, msg):
         self.max_source_prob_x = msg.x
@@ -212,10 +240,9 @@ class Metaheuristic:
                 self.getNormalHeuristic()
                 self.waypointResCalc()
                 self.followDirection()
-                # Change temperature
-                self.Temp -= self.delta_Temp
-                if self.Temp <= 0:
-                    rospy.logerr("Temperature has reduced below Zero")
+
+                # self.changeTemperature()
+                
             else:
                 # maintain_dir_prob = math.exp((gradient - self._conc_grad_epsilon)/self.Temp)
 
@@ -231,8 +258,7 @@ class Metaheuristic:
                     self.getNormalHeuristic()
                     self.waypointResCalc()
                     self.followDirection()
-                    # Change temperature
-                    # self.Temp -= self.delta_Temp
+                    # self.changeTemperature()
                 else:
                     rospy.loginfo("Getting new heuristic")
                     self.getNewHeuristic()
