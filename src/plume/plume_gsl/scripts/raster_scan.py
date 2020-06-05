@@ -40,13 +40,10 @@ class RasterScan:
         self.rs_start_position = self.move_drone_client.get_drone_position()
         self.rs_scan_distance = scan_distance
         self.rs_scanned_distance = 0.0
-        # self.rs_concentration_position_tuple = (0, 0)
-        # self.rs_max_concentration = 0.0
         self.rs_max_concentration_position_tuple = (self.current_concentration, self.move_drone_client.get_drone_position())        
 
 
     def startRasterScan(self):
-        print("startRasterScan")
         if self.avg_wind_first_time:
             sleep_duration = rospy.Duration(secs=self.avg_wind_direction_duration)
             rospy.sleep(sleep_duration)
@@ -62,8 +59,6 @@ class RasterScan:
         self.move_drone_client.sendWaypoint(self.rs_max_concentration_position_tuple[1])
 
     def flankScan(self, heading):
-        print("rasterScan")
-
         while self.rs_scanned_distance <= self.rs_scan_distance and not rospy.is_shutdown():
             # if concentration goes below a certain level, go back
             # if False:
@@ -107,7 +102,6 @@ class RasterScan:
             else:
                 self.avg_wind = False
                 self.avg_wind_direction = math.atan2(self.avg_wind_velocity_y, self.avg_wind_velocity_x)
-                print(self.avg_wind_direction)
 
 
     def cumulative_moving_average(self, new_val, num_val, prev_avg):
@@ -156,5 +150,5 @@ if __name__=="__main__":
 
     rs = RasterScan(1)
     rs.startRasterScan()
-    print(rs.getMaximumConcentrationPosition())
+
     rospy.spin()

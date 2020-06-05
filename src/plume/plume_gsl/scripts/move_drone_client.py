@@ -50,7 +50,7 @@ class MoveDroneClient:
         waypoint_y = self._waypoint_resolution * math.sin(waypoint_heading) + self.waypoint_prev[1]
         waypoint_z = self.get_drone_position()[2]
         self.waypoint = (waypoint_x, waypoint_y, waypoint_z)
-        print("Waypoint", self.waypoint)
+
         return (self.waypoint[0], self.waypoint[1], self.waypoint[2])
 
 
@@ -58,7 +58,7 @@ class MoveDroneClient:
         # Send waypoint and set has_reached_waypoint to false. Set this back to true when the feedback from server comes true
         self.has_reached_waypoint = False
         self.waypointGoal = waypointGoal([Point(waypoint[0], waypoint[1], waypoint[2])])
-        # print("sendWaypoint")
+
         self.waypoint_client.send_goal(self.waypointGoal, done_cb=self.actionDone)
         if wait_for_result:
             self.waypoint_client.wait_for_result()
@@ -67,7 +67,7 @@ class MoveDroneClient:
 
     def actionDone(self, status, result):
         self.has_reached_waypoint = True
-        print("reached")
+
 
 
 if __name__ == "__main__":
