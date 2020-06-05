@@ -1,13 +1,21 @@
 # plume-source-localisation
 
-Use this to clone this repository.
+Clone this repository.
 
-```shell
-git clone git@github.com:shantanuwadnerkar/plume_nav
-```
-
-Build the project.
+Build the project using,
 
 ```shell
 cd plume_nav && ./build.sh
+```
+
+Source the ROS project,
+
+```shell
+echo "source devel/setup.bash" >> ~/.bashrc
+source ~/.bashrc
+```
+
+Run the launch file
+```shell
+roslaunch plume_gsl demo.launch
 ```
