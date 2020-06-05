@@ -4,6 +4,7 @@ import math
 import sys
 from collections import namedtuple, deque
 import numpy as np
+import random
 
 import rospy
 
@@ -33,7 +34,7 @@ class Metaheuristic:
         self.waypoint_res = 0.5  
 
         # The following are to change the waypoint_resolution based on the concentration      
-        self.res_range = Range(0.5, 2.0)
+        self.res_range = Range(1, 2.5)
         self.conc_range = Range(10.0, 200.0)
         self.calcWaypointSlopeIntercept()
 
@@ -58,7 +59,7 @@ class Metaheuristic:
 
         # Temperature parameter
         self.Temp = 100.0
-        self.delta_Temp = 5.0
+        self.delta_Temp = 2.0
 
         self.source_reached = False        
 
@@ -68,11 +69,13 @@ class Metaheuristic:
         self._conc_grad_epsilon = 0
 
         # Minimum concentration to detect
-        self._conc_epsilon = 5
+        self._conc_epsilon = 10
 
         # Define some lamba. Based on what?
         # Random value. Change later
         self._probability_threshold = 1e-4
+
+        self.maintain_dir_prob = 0.65
 
         self.has_reached_waypoint = True
         
@@ -118,6 +121,18 @@ class Metaheuristic:
             return True
         else:
             return False
+    
+    def getNewHeuristic(self):
+        # Choose a random perpendicular-to-wind direction
+        if random.random() >= 0.5:
+            dir = 1
+        else:
+            dir = -1
+
+        self.waypoint_heading = dir*math.pi/2 + np.mean(self.wind_hist)
+
+    def getNormalHeuristic(self):
+        self.waypoint_heading = math.pi + np.mean(self.wind_hist)
 
     def maxSourceProbabilityCallback(self, msg):
         self.max_source_prob_x = msg.x
@@ -185,32 +200,47 @@ class Metaheuristic:
 
         elif self.has_reached_waypoint and not self.source_reached:
             
+            rospy.loginfo("Length of concentration data: %d"%len(self.concentration_hist))
+
             self.waypoint_x_prev = self.waypoint_x
             self.waypoint_y_prev = self.waypoint_y
             self.waypoint_z_prev = self.waypoint_z
 
             gradient = self.checkGradient()
 
-            self.concentration_hist = []
-
             if gradient > self._conc_grad_epsilon:
+                self.getNormalHeuristic()
+                self.waypointResCalc()
                 self.followDirection()
                 # Change temperature
                 self.Temp -= self.delta_Temp
                 if self.Temp <= 0:
                     rospy.logerr("Temperature has reduced below Zero")
             else:
-                maintain_dir_prob = math.exp((gradient - self._conc_grad_epsilon)/self.Temp)
+                # maintain_dir_prob = math.exp((gradient - self._conc_grad_epsilon)/self.Temp)
 
-                if maintain_dir_prob > self._probability_threshold:
+                # If non-increasing gradient and low concentration
+                if self.concentration_hist[-1] < self._conc_epsilon:
+                    rospy.loginfo("Concentration too low. Getting new heuristic")
+                    self.getNewHeuristic()
+                    self.waypointResCalc()
+                    self.followDirection()
+
+                elif self.maintain_dir_prob > random.random():
                     rospy.loginfo("Maintain direction prob")
+                    self.getNormalHeuristic()
+                    self.waypointResCalc()
                     self.followDirection()
                     # Change temperature
-                    self.Temp -= self.delta_Temp
+                    # self.Temp -= self.delta_Temp
                 else:
                     rospy.loginfo("Getting new heuristic")
+                    self.getNewHeuristic()
+                    self.waypointResCalc()
+                    self.followDirection()
                     # Calculate new direction
-                    pass
+            
+            self.concentration_hist = []
 
 
 if __name__ == "__main__":
