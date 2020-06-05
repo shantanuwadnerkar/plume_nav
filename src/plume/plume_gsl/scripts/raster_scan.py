@@ -19,29 +19,30 @@ class RasterScan:
     def __init__(self, scan_distance=2):
         self.move_drone_client = MoveDroneClient()
 
-        self.wind_speed = 0.0
-        self.wind_direction = 0.0
+        self.transform_listener = tf.TransformListener()
+        self.fixed_frame  = rospy.get_param("/fixed_frame")
+        self.anemometer_frame  = rospy.get_param("/anemometer_frame")
 
         self.avg_wind_direction_duration = 2
         self.avg_wind = True
         self.avg_wind_first_time = True
 
+        self.avg_wind_count = 0
+        self.avg_wind_velocity_x = 0.0
+        self.avg_wind_velocity_y = 0.0
+        self.avg_wind_direction_start_time = rospy.Time.now().secs
+
+        rospy.Subscriber("PID/Sensor_reading", gas_sensor, callback=self.concentration_callback)
+        rospy.Subscriber("Anemometer/WindSensor_reading", anemometer, callback=self.anemometer_callback)
+        rospy.wait_for_message("PID/Sensor_reading", gas_sensor)
+        rospy.wait_for_message("Anemometer/WindSensor_reading", anemometer)
+
         self.rs_start_position = self.move_drone_client.get_drone_position()
         self.rs_scan_distance = scan_distance
         self.rs_scanned_distance = 0.0
-
-        self.wind_velocity_x = 0.0
-        self.wind_velocity_y = 0.0
-        self.avg_wind_velocity_x = 0.0
-        self.avg_wind_velocity_y = 0.0
-        self.avg_wind_count = 0
-        self.avg_wind_direction_start_time = rospy.Time.now().secs
-        
-        self.transform_listener = tf.TransformListener()
-        self.fixed_frame  = rospy.get_param("/fixed_frame")
-        self.anemometer_frame  = rospy.get_param("/anemometer_frame")
-        rospy.Subscriber("Anemometer/WindSensor_reading", anemometer, callback=self.wind_callback)
-        rospy.wait_for_message("Anemometer/WindSensor_reading", anemometer)
+        # self.rs_concentration_position_tuple = (0, 0)
+        # self.rs_max_concentration = 0.0
+        self.rs_max_concentration_position_tuple = (self.current_concentration, self.move_drone_client.get_drone_position())        
 
 
     def startRasterScan(self):
@@ -70,6 +71,9 @@ class RasterScan:
             # if False:
             #     break
 
+            if self.concentration_position_tuple[0] > self.rs_max_concentration_position_tuple[0]:
+                self.rs_max_concentration_position_tuple = self.concentration_position_tuple
+
             waypoint = self.move_drone_client.generateWaypoint(heading)
             self.move_drone_client.sendWaypoint(waypoint)
             self.rs_scanned_distance = self.findScannedDistance(self.move_drone_client.get_drone_position())
@@ -77,16 +81,25 @@ class RasterScan:
         self.rs_scanned_distance = 0.0
 
 
+    def getMaximumConcentrationPosition(self):
+        return self.rs_max_concentration_position_tuple
+
+
     def findScannedDistance(self, current_position):
         return math.sqrt((current_position[0] - self.rs_start_position[0])**2 + (current_position[1] - self.rs_start_position[1])**2 + (current_position[2] - self.rs_start_position[2])**2)
 
 
-    def wind_callback(self, msg):
+    def concentration_callback(self, concentration_reading):
+        self.current_concentration = concentration_reading.raw
+        self.concentration_position_tuple = (self.current_concentration, self.move_drone_client.get_drone_position())
+
+
+    def anemometer_callback(self, msg):
         self.wind_speed = msg.wind_speed
         self.wind_direction = self.anemometer_transform(msg.wind_direction)
 
-        self.wind_velocity_x = msg.wind_speed * math.cos(self.wind_direction)
-        self.wind_velocity_y = msg.wind_speed * math.sin(self.wind_direction)
+        self.wind_velocity_x = self.wind_speed * math.cos(self.wind_direction)
+        self.wind_velocity_y = self.wind_speed * math.sin(self.wind_direction)
 
         if self.avg_wind:
             if (rospy.Time.now().secs - self.avg_wind_direction_start_time < self.avg_wind_direction_duration):
@@ -145,5 +158,5 @@ if __name__=="__main__":
 
     rs = RasterScan(1)
     rs.startRasterScan()
-
+    print(rs.getMaximumConcentrationPosition())
     rospy.spin()
