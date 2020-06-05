@@ -57,11 +57,9 @@ class RasterScan:
         heading = self.getPerpendicularAngle(self.avg_wind_direction)
         
         self.flankScan(heading)
-        self.rs_scanned_distance = 0
-        heading = self.getOppositeAngle(heading)
-        print(self.rs_start_position)
         self.move_drone_client.sendWaypoint(self.rs_start_position)
-        self.flankScan(heading)
+        self.flankScan(self.getOppositeAngle(heading))
+        self.move_drone_client.sendWaypoint(self.rs_max_concentration_position_tuple[1])
 
     def flankScan(self, heading):
         print("rasterScan")
