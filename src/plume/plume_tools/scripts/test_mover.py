@@ -39,7 +39,7 @@ def moving_controller(goal_x, goal_y):
                 vel_msg.linear.x = 0
                 vel_msg.angular.z = 3 * angdiff(theta, angle_to_goal)
             else:
-                vel_msg.linear.x = 2 * dist2goal
+                vel_msg.linear.x = min(0.5,2 * dist2goal)
                 vel_msg.angular.z = 0
             return False
         else:
@@ -89,13 +89,15 @@ def do_move():
 #     server.start()
 #     rospy.spin()
 
+# print("NAME:======= ",__name__)
 
+# if __name__ == "__main__":
+#     if len(sys.argv) == 3:
+#         do_move()
+#         print('123123')
+#     else:
+#         print('error2') # mover_action()
+# else:
+#     print("error")
 
-if __name__ == "__main__":
-    if len(sys.argv) == 3:
-        do_move()
-        print('123123')
-    else:
-        print('error2') # mover_action()
-else:
-    print("error")
+do_move()
