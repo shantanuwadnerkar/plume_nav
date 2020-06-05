@@ -40,7 +40,7 @@ class RasterScan:
         self.transform_listener = tf.TransformListener()
         self.fixed_frame  = rospy.get_param("/fixed_frame")
         self.anemometer_frame  = rospy.get_param("/anemometer_frame")
-        rospy.Subscriber("Anemometer/WindSensor_reading", anemometer, callback=rs.wind_callback)
+        rospy.Subscriber("Anemometer/WindSensor_reading", anemometer, callback=self.wind_callback)
         rospy.wait_for_message("Anemometer/WindSensor_reading", anemometer)
 
 
