@@ -43,8 +43,21 @@ class MoveDrone:
 
 
     def angular_difference(self, a, b):
-        normalized_angle = (a - b) % (2 * math.pi)
-        difference = min(2 * math.pi - normalized_angle, normalized_angle)
+        difference = 0
+        if not a == b:
+            diff = b-a
+            dir = abs(diff)/(diff)
+
+            if diff > math.pi or diff < -math.pi:
+                dir *= -1
+
+            v1x = math.cos(a)
+            v1y = math.sin(a)
+            v2x = math.cos(b)
+            v2y = math.sin(b)
+            
+            difference = dir*math.acos(v1x*v2x + v1y*v2y)
+
         return difference
 
 

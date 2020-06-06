@@ -1,0 +1,10 @@
+#goal definition
+float32 scan_distance
+
+---
+#result definition
+float32 max_concentration
+float32[] max_concentration_point
+
+---
+#feedback
