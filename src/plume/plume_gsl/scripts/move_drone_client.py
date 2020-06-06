@@ -16,6 +16,8 @@ class MoveDroneClient:
         self.waypoint_client.wait_for_server()
         self.waypointGoal = waypointGoal()
 
+        self.position = Point()
+
         rospy.Subscriber("base_pose_ground_truth", Odometry, callback=self.drone_position_callback)
         rospy.wait_for_message("base_pose_ground_truth", Odometry)
 
@@ -27,6 +29,9 @@ class MoveDroneClient:
         self.waypoint = self.get_drone_position()
         self.waypoint_heading = self.drone_heading
 
+        self.wayPoint = Point()
+        self.wayPoint_prev = self.position   
+
 
     def drone_position_callback(self, msg):
         rot_q = msg.pose.pose.orientation
@@ -35,6 +40,11 @@ class MoveDroneClient:
         self.drone_y = msg.pose.pose.position.y
         self.drone_z = msg.pose.pose.position.z
         _, _, self.drone_heading = euler_from_quaternion([rot_q.x, rot_q.y, rot_q.z, rot_q.w])
+
+        self.position.x = msg.pose.pose.position.x
+        self.position.y = msg.pose.pose.position.y
+        self.position.z = msg.pose.pose.position.z
+        _, _, self.heading = euler_from_quaternion([rot_q.x, rot_q.y, rot_q.z, rot_q.w])
 
 
     def get_drone_position(self):
@@ -63,6 +73,28 @@ class MoveDroneClient:
         if wait_for_result:
             self.waypoint_client.wait_for_result()
         self.waypoint_prev = self.get_drone_position()
+
+
+    def followDirection(self, waypoint_heading, waypoint_res=None):
+        if not waypoint_res:
+            waypoint_res = self._waypoint_resolution
+        
+        rospy.loginfo("follow direction")
+        self.wayPoint.x = waypoint_res * math.cos(waypoint_heading) + self.wayPoint_prev.x
+        self.wayPoint.y = waypoint_res * math.sin(waypoint_heading) + self.wayPoint_prev.y
+        print("Waypoint", self.wayPoint.x, self.wayPoint.y)
+
+        # if not self.xbounds.min < self.waypoint_x < self.xbounds.max \
+        #         or not self.ybounds.min < self.waypoint_y < self.ybounds.max:
+        #     rospy.logwarn("Map boundary reached.")
+
+        self.sendWayPoint()
+
+    def sendWayPoint(self):
+        self.has_reached_waypoint = False
+        self.waypointGoal = waypointGoal([self.wayPoint])
+        self.waypoint_client.send_goal(self.waypointGoal, done_cb=self.actionDone)
+        self.wayPoint_prev = self.wayPoint
 
 
     def actionDone(self, status, result):

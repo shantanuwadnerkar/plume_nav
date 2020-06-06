@@ -19,6 +19,8 @@ import time
 import tf
 from tf.transformations import euler_from_quaternion
 
+from move_drone_client import MoveDroneClient
+
 
 class Metaheuristic:
     def __init__(self):
@@ -27,11 +29,13 @@ class Metaheuristic:
         self.ZIGZAG = 1
         self.METAHEURISTIC = 2
 
+        self.drone = MoveDroneClient()
+
         try:
-            self.drone_x = rospy.get_param("/crazyflie_pose_transform/drone_spawn_x")
-            self.drone_y = rospy.get_param("/crazyflie_pose_transform/drone_spawn_y")
-            self.drone_z = rospy.get_param("/crazyflie_pose_transform/drone_spawn_z")
-            self.drone_heading = rospy.get_param("/crazyflie_pose_transform/drone_spawn_yaw")
+            # self.drone_x = rospy.get_param("/crazyflie_pose_transform/drone_spawn_x")
+            # self.drone_y = rospy.get_param("/crazyflie_pose_transform/drone_spawn_y")
+            # self.drone_z = rospy.get_param("/crazyflie_pose_transform/drone_spawn_z")
+            # self.drone_heading = rospy.get_param("/crazyflie_pose_transform/drone_spawn_yaw")
             self.algorithm = rospy.get_param("~/Algorithm",1)
             xlims = rospy.get_param("xlims","[0,20]")
             ylims = rospy.get_param("ylims","[0,20]")
@@ -63,15 +67,15 @@ class Metaheuristic:
         self.anemo_frame = rospy.get_param("anemometer_frame","anemometer_frame")
 
         # Previous and current states
-        self.waypoint_x_prev = self.drone_x
-        self.waypoint_y_prev = self.drone_y
-        self.waypoint_z_prev = self.drone_z
-        self.waypoint_heading_prev = self.drone_heading
+        # self.waypoint_x_prev = self.drone.position.x
+        # self.waypoint_y_prev = self.drone.position.y
+        # self.waypoint_z_prev = self.drone.position.z
+        # self.waypoint_heading_prev = self.drone.heading
 
-        self.waypoint_x = None
-        self.waypoint_y = None
-        self.waypoint_z = None
-        self.waypoint_heading = None
+        # self.waypoint_x = None
+        # self.waypoint_y = None
+        # self.waypoint_z = self.drone.position.z
+        # self.waypoint_heading = None
 
         # Temperature parameter
         self.Temp = 100.0
@@ -262,7 +266,7 @@ class Metaheuristic:
 
                 self.getNormalHeuristic()
                 self.waypointResCalc()
-                self.followDirection()
+                self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
                 
                 self.concentration_hist = []
             
@@ -272,38 +276,38 @@ class Metaheuristic:
             rospy.loginfo_once("Source declared at (%f,%f)",self.drone_x, self.drone_y)
             return
 
-        if not self.waypoint_x:
+        concentration = msg.raw
+
+        # Record of maximum concentration
+        if concentration > self.max_conc_val:
+            self.max_conc_val = concentration
+            self.max_conc_at.x, self.max_conc_at.y = self.drone.position.x, self.drone.position.y
+        
+        self.concentration_hist.append(concentration)
+
+        if self.drone.wayPoint.x == 0:
             if self.algorithm == self.METAHEURISTIC:
                 self.callRasterScan()
                 return
 
             elif self.getInitialHeuristic():
                 self.waypointResCalc()
-                self.followDirection()
-        
-        concentration = msg.raw
+                self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
 
-        # Record of maximum concentration
-        if concentration > self.max_conc_val:
-            self.max_conc_val = concentration
-            self.max_conc_at.x, self.max_conc_at.y = self.drone_x, self.drone_y
-        
-        self.concentration_hist.append(concentration)
-
-        elif self.has_reached_waypoint and not self.source_reached:
+        elif self.drone.has_reached_waypoint and not self.source_reached:
             
             rospy.loginfo("Length of concentration data: %d"%len(self.concentration_hist))
 
-            self.waypoint_x_prev = self.waypoint_x
-            self.waypoint_y_prev = self.waypoint_y
-            self.waypoint_z_prev = self.waypoint_z
+            # self.waypoint_x_prev = self.waypoint_x
+            # self.waypoint_y_prev = self.waypoint_y
+            # self.waypoint_z_prev = self.waypoint_z
 
             gradient = self.checkGradient()
 
             if gradient > self._conc_grad_epsilon:
                 self.getNormalHeuristic()
                 self.waypointResCalc()
-                self.followDirection()
+                self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
 
                 # self.changeTemperature()
                 
@@ -315,19 +319,19 @@ class Metaheuristic:
                     rospy.loginfo("Concentration too low. Getting new heuristic")
                     self.getNewHeuristic()
                     self.waypointResCalc()
-                    self.followDirection()
+                    self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
 
                 elif self.maintain_dir_prob > random.random():
                     rospy.loginfo("Maintain direction prob")
                     self.getNormalHeuristic()
                     self.waypointResCalc()
-                    self.followDirection()
+                    self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
                     # self.changeTemperature()
                 else:
                     rospy.loginfo("Getting new heuristic")
                     self.getNewHeuristic()
                     self.waypointResCalc()
-                    self.followDirection()
+                    self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
                     # Calculate new direction
             
             self.concentration_hist = []
@@ -340,8 +344,8 @@ if __name__ == "__main__":
         mh = Metaheuristic()
 
         # Current position and speed
-        rospy.Subscriber("base_pose_ground_truth", Odometry, callback=mh.dronePositionCallback)
-        rospy.wait_for_message("base_pose_ground_truth", Odometry)
+        # rospy.Subscriber("base_pose_ground_truth", Odometry, callback=mh.dronePositionCallback)
+        # rospy.wait_for_message("base_pose_ground_truth", Odometry)
 
         # Subscribe to Anemometer - get wind data
         rospy.Subscriber("Anemometer/WindSensor_reading", anemometer, callback=mh.windCallback)
