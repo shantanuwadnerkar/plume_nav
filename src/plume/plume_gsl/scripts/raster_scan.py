@@ -44,6 +44,8 @@ class RasterScan:
         self.rs_scanned_distance = 0.0
         self.rs_max_concentration_position_tuple = (self.current_concentration, self.move_drone_client.get_drone_position())        
 
+        self.action_server = actionlib.SimpleActionServer('rasterScan', rasterScanAction, self.rs_action_callback, False)
+        self.action_server.start()
 
     def startRasterScan(self, scan_distance=2.0):
         self.rs_scan_distance = scan_distance
@@ -61,6 +63,13 @@ class RasterScan:
         self.move_drone_client.sendWaypoint(self.rs_start_position)
         self.flankScan(self.getOppositeAngle(heading))
         self.move_drone_client.sendWaypoint(self.rs_max_concentration_position_tuple[1])
+        self.endRasterScan()
+
+    def endRasterScan(self):
+        result = rasterScanResult()
+        result.max_concentration = self.rs_max_concentration_position_tuple[0]
+        result.max_concentration_point = self.rs_max_concentration_position_tuple[1:]
+        self.action_server.set_succeeded(result)
 
     def flankScan(self, heading):
         while self.rs_scanned_distance <= self.rs_scan_distance and not rospy.is_shutdown():
@@ -148,13 +157,8 @@ class RasterScan:
         return angle
 
 
-def rs_action_callback(self, goal):
-    
-    rs.startRasterScan(goal)
-
-    result = rasterScanResult()
-    result.succ_msg = "Reached"
-    self.action_server.set_succeeded(result)
+    def rs_action_callback(self, goal):    
+        self.startRasterScan(goal)
 
 
 if __name__=="__main__":
@@ -162,11 +166,6 @@ if __name__=="__main__":
 
     rs = RasterScan()
     
-    action_server = actionlib.SimpleActionServer('waypoint', rasterScanAction, rs_action_callback, False)
-    action_server.start()
-
-
-
     # rs.startRasterScan(1)
 
     rospy.spin()

@@ -122,7 +122,6 @@ class Metaheuristic:
     def callRasterScan(self):
         # Send raster scan goal
         self.raster_scan_complete = False
-        pass
     
     def changeTemperature(self):
         # Change temperature
