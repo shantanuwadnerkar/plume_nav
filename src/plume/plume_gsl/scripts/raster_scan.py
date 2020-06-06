@@ -18,7 +18,7 @@ from move_drone_client import MoveDroneClient
 
 
 class RasterScan:
-    def __init__(self):
+    def __init__(self, use_actionlib=True):
         self.move_drone_client = MoveDroneClient()
 
         self.transform_listener = tf.TransformListener()
@@ -44,8 +44,12 @@ class RasterScan:
         self.rs_scanned_distance = 0.0
         self.rs_max_concentration_position_tuple = (self.current_concentration, self.move_drone_client.get_drone_position())        
 
-        self.action_server = actionlib.SimpleActionServer('rasterScan', rasterScanAction, self.rs_action_callback, False)
-        self.action_server.start()
+        if use_actionlib:
+            self.action_server = actionlib.SimpleActionServer('rasterScan', rasterScanAction, self.rs_action_callback, False)
+            self.action_server.start()
+        else:
+            pass
+
 
     def startRasterScan(self, scan_distance=2.0):
         self.rs_scan_distance = scan_distance
@@ -58,18 +62,21 @@ class RasterScan:
         self.rs_start_position = self.move_drone_client.get_drone_position()
 
         heading = self.getPerpendicularAngle(self.avg_wind_direction)
-        
+
         self.flankScan(heading)
         self.move_drone_client.sendWaypoint(self.rs_start_position)
         self.flankScan(self.getOppositeAngle(heading))
         self.move_drone_client.sendWaypoint(self.rs_max_concentration_position_tuple[1])
-        self.endRasterScan()
+        if use_actionlib:
+            self.endRasterScan()
+
 
     def endRasterScan(self):
         result = rasterScanResult()
         result.max_concentration = self.rs_max_concentration_position_tuple[0]
-        result.max_concentration_point = self.rs_max_concentration_position_tuple[1:]
+        result.max_concentration_point = self.rs_max_concentration_position_tuple[1]
         self.action_server.set_succeeded(result)
+
 
     def flankScan(self, heading):
         while self.rs_scanned_distance <= self.rs_scan_distance and not rospy.is_shutdown():
@@ -164,8 +171,15 @@ class RasterScan:
 if __name__=="__main__":
     rospy.init_node("raster_scan")
 
-    rs = RasterScan()
+    if "--test-wo-actionlib" in sys.argv:
+        use_actionlib = False
+    else:
+        use_actionlib = True
+
+    rs = RasterScan(use_actionlib=use_actionlib)
     
-    # rs.startRasterScan(1)
+    if not use_actionlib:
+        print("run")
+        rs.startRasterScan(2)
 
     rospy.spin()
