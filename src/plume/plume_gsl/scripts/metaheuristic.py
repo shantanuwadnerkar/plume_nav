@@ -66,17 +66,6 @@ class Metaheuristic:
         self.fixed_frame = rospy.get_param("fixed_frame", "map")
         self.anemo_frame = rospy.get_param("anemometer_frame","anemometer_frame")
 
-        # Previous and current states
-        # self.waypoint_x_prev = self.drone.position.x
-        # self.waypoint_y_prev = self.drone.position.y
-        # self.waypoint_z_prev = self.drone.position.z
-        # self.waypoint_heading_prev = self.drone.heading
-
-        # self.waypoint_x = None
-        # self.waypoint_y = None
-        # self.waypoint_z = self.drone.position.z
-        # self.waypoint_heading = None
-
         # Temperature parameter
         self.Temp = 100.0
         self.delta_Temp = 2.0
@@ -297,10 +286,6 @@ class Metaheuristic:
         elif self.drone.has_reached_waypoint and not self.source_reached:
             
             rospy.loginfo("Length of concentration data: %d"%len(self.concentration_hist))
-
-            # self.waypoint_x_prev = self.waypoint_x
-            # self.waypoint_y_prev = self.waypoint_y
-            # self.waypoint_z_prev = self.waypoint_z
 
             gradient = self.checkGradient()
 
