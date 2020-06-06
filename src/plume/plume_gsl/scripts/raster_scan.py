@@ -6,6 +6,8 @@ import sys
 
 import rospy
 
+import actionlib
+from plume_gsl.msg import rasterScanAction, rasterScanGoal, rasterScanResult, rasterScanFeedback
 from geometry_msgs.msg import Twist, Point
 from nav_msgs.msg import Odometry
 from olfaction_msgs.msg import anemometer, gas_sensor
@@ -16,7 +18,7 @@ from move_drone_client import MoveDroneClient
 
 
 class RasterScan:
-    def __init__(self, scan_distance=2):
+    def __init__(self):
         self.move_drone_client = MoveDroneClient()
 
         self.transform_listener = tf.TransformListener()
@@ -38,12 +40,14 @@ class RasterScan:
         rospy.wait_for_message("Anemometer/WindSensor_reading", anemometer)
 
         self.rs_start_position = self.move_drone_client.get_drone_position()
-        self.rs_scan_distance = scan_distance
+        self.rs_scan_distance = 0.0
         self.rs_scanned_distance = 0.0
         self.rs_max_concentration_position_tuple = (self.current_concentration, self.move_drone_client.get_drone_position())        
 
 
-    def startRasterScan(self):
+    def startRasterScan(self, scan_distance=2.0):
+        self.rs_scan_distance = scan_distance
+
         if self.avg_wind_first_time:
             sleep_duration = rospy.Duration(secs=self.avg_wind_direction_duration)
             rospy.sleep(sleep_duration)
@@ -144,11 +148,25 @@ class RasterScan:
         return angle
 
 
+def rs_action_callback(self, goal):
+    
+    rs.startRasterScan(goal)
+
+    result = rasterScanResult()
+    result.succ_msg = "Reached"
+    self.action_server.set_succeeded(result)
+
 
 if __name__=="__main__":
     rospy.init_node("raster_scan")
 
-    rs = RasterScan(1)
-    rs.startRasterScan()
+    rs = RasterScan()
+    
+    action_server = actionlib.SimpleActionServer('waypoint', rasterScanAction, rs_action_callback, False)
+    action_server.start()
+
+
+
+    # rs.startRasterScan(1)
 
     rospy.spin()
