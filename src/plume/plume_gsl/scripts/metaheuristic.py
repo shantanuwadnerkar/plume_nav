@@ -11,6 +11,7 @@ import rospy
 
 import actionlib
 from crazyflie_control.msg import waypointGoal, waypointAction, waypointResult, waypointFeedback
+from plume_gsl.msg import rasterScanAction, rasterScanGoal, rasterScanResult, rasterScanFeedback
 from geometry_msgs.msg import Twist, Point
 from nav_msgs.msg import Odometry
 from olfaction_msgs.msg import anemometer, gas_sensor
@@ -24,6 +25,7 @@ class Metaheuristic:
         # drone_spawn_heading is not yet added to rosparam
         self.FOLLOW_WIND = 0
         self.ZIGZAG = 1
+        self.METAHEURISTIC = 2
 
         try:
             self.drone_x = rospy.get_param("/crazyflie_pose_transform/drone_spawn_x")
@@ -102,7 +104,7 @@ class Metaheuristic:
         self.max_conc_val = None
         self.concentration_hist = []
 
-        self.raster_scan_complete = False
+        self.raster_scan_complete = True
 
         self.wind_hist = deque([])
         self.len_wind_hist = 15
@@ -117,6 +119,11 @@ class Metaheuristic:
         self.waypoint_slope = (self.res_range.max - self.res_range.min)/(1/self.conc_range.min - 1/self.conc_range.max)
         self.waypoint_intercept = self.res_range.min - self.waypoint_slope*(1/self.conc_range.max)
 
+    def callRasterScan(self):
+        # Send raster scan goal
+        self.raster_scan_complete = False
+        pass
+    
     def changeTemperature(self):
         # Change temperature
             self.Temp -= self.delta_Temp
@@ -135,7 +142,7 @@ class Metaheuristic:
         self.drone_y = msg.pose.pose.position.y
         rot_q = msg.pose.pose.orientation
         _, _, self.drone_heading = euler_from_quaternion([rot_q.x, rot_q.y, rot_q.z, rot_q.w])
-
+    
     def followDirection(self):
         rospy.loginfo("follow direction")
         self.waypoint_x = self.waypoint_res * math.cos(self.waypoint_heading) + self.waypoint_x_prev
@@ -163,7 +170,7 @@ class Metaheuristic:
             return True
         else:
             return False
-    
+
     def getNewHeuristic(self):
         if self.algorithm == self.FOLLOW_WIND:
             # Choose a random perpendicular-to-wind direction
@@ -195,7 +202,9 @@ class Metaheuristic:
 
         if self.algorithm == self.ZIGZAG:
             # Should implement raster scan here before FOLLOW_WIND
-            self.algorithm = self.FOLLOW_WIND
+            self.callRasterScan()
+            if self.raster_scan_complete:
+                self.algorithm = self.FOLLOW_WIND
         
         self.waypoint_x, self.waypoint_y = self.max_conc_at.x, self.max_conc_at.y
 
@@ -208,9 +217,6 @@ class Metaheuristic:
             angle -= 2*math.pi
 
         return angle
-
-    def rasterScan(self):
-        pass
 
     def sendWaypoint(self,x,y,z):
         # Send waypoint and set has_reached_waypoint to false. Set this back to true when the feedback from server comes true
@@ -248,13 +254,34 @@ class Metaheuristic:
 
     def concentrationCallback(self, msg):        
         if not self.raster_scan_complete:
-            # do raster
-            pass
+            # Check status of action
+            # self.raster_scan_complete = 
+            if self.raster_scan_complete:
+                self.concentration_hist.append(msg.raw)
+
+                # Compare maximum concentration
+
+                self.getNormalHeuristic()
+                self.waypointResCalc()
+                self.followDirection()
+                
+                self.concentration_hist = []
+            
+            return
 
         if self.source_reached:
             rospy.loginfo_once("Source declared at (%f,%f)",self.drone_x, self.drone_y)
             return
 
+        if not self.waypoint_x:
+            if self.algorithm == self.METAHEURISTIC:
+                self.callRasterScan()
+                return
+
+            elif self.getInitialHeuristic():
+                self.waypointResCalc()
+                self.followDirection()
+        
         concentration = msg.raw
 
         # Record of maximum concentration
@@ -263,11 +290,6 @@ class Metaheuristic:
             self.max_conc_at.x, self.max_conc_at.y = self.drone_x, self.drone_y
         
         self.concentration_hist.append(concentration)
-
-        if not self.waypoint_x:
-            if self.getInitialHeuristic():
-                self.waypointResCalc()
-                self.followDirection()
 
         elif self.has_reached_waypoint and not self.source_reached:
             
