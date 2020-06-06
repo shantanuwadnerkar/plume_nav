@@ -179,7 +179,6 @@ if __name__=="__main__":
     rs = RasterScan(use_actionlib=use_actionlib)
     
     if not use_actionlib:
-        print("run")
         rs.startRasterScan(2)
 
     rospy.spin()
