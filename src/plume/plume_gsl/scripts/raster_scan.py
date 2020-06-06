@@ -164,8 +164,8 @@ class RasterScan:
         return angle
 
 
-    def rs_action_callback(self, goal):    
-        self.startRasterScan(goal)
+    def rs_action_callback(self, goal):
+        self.startRasterScan(goal.scan_distance)
 
 
 if __name__=="__main__":
