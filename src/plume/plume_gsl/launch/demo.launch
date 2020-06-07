@@ -12,6 +12,12 @@
 
     <node name="move_drone" pkg="crazyflie_control" type="move_drone.py" />
 
+    <node name="metaheuristic" pkg="plume_gsl" type="metaheuristic.py" />
+
+    <node name="raster_scan" pkg="plume_gsl" type="raster_scan.py" />
+
+    <node name="move_drone_client" pkg="plume_gsl" type="move_drone_client.py" />
+
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find plume_gsl)/launch/rviz/demo.rviz" required="true" />
 
 </launch>
