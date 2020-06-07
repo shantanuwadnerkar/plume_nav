@@ -113,6 +113,10 @@ class Prob_Mapping:
                     break
                 if windinstance == wind_data[-1]:
                     rospy.logerr("Did not break loop")
+            return True
+        else:
+            # Wait for wind history array to build up to t_max
+            return False
 
     
     def go(self):
@@ -132,8 +136,7 @@ class Prob_Mapping:
             odor_req = rospy.ServiceProxy('odor_value', GasPosition)
         else:
             sensor_sub = rospy.Subscriber("/PID/Sensor_reading", gas_sensor, self.sensor_callback)
-            rospy.wait_for_message("/PID/Sensor_reading", gas_sensor, rospy.Duration(4.0))
-        
+            rospy.wait_for_message("/PID/Sensor_reading", gas_sensor, rospy.Duration(4.0))        
         
         # Get grid parameters
         grid = GridWorld()
@@ -167,6 +170,9 @@ class Prob_Mapping:
             if self.L is None:
                 continue
             
+            if not self.adjust_wind_interval():
+                continue
+            
             # Creating local saves at each timestep for continuously changing values
             x_pos,y_pos = self.x, self.y
             K = self.K
@@ -185,9 +191,7 @@ class Prob_Mapping:
             rospy.loginfo("x,y = [%.2f,%.2f], Gas concentration: %.2f",x_pos,y_pos,gas_conc)
 
             # Check if detection occurs     
-            detection = gas_conc > 0      
-
-            self.adjust_wind_interval()
+            detection = gas_conc > 0            
 
             # Wind values from t_L to t_K without accounting for the 'time' column of wind_history
             wind_data = np.delete(self.wind_history[self.L:K+1],2,1).astype(float)
