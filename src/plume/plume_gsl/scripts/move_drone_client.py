@@ -108,36 +108,30 @@ class MoveDroneClient:
             waypoint_res = self._waypoint_resolution
         
         rospy.loginfo("follow direction")
-        x = self.wayPoint_prev.x
-        y = self.wayPoint_prev.y
-        print("Current and previous-6", self.wayPoint.x, self.wayPoint_prev.x)
-        print(waypoint_heading, waypoint_res)
+        x0, y0 = self.wayPoint_prev.x, self.wayPoint_prev.y
 
-        self.wayPoint.x = waypoint_res * math.cos(waypoint_heading) + x
-        self.wayPoint.y = waypoint_res * math.sin(waypoint_heading) + y
-        # print("Waypoint", self.wayPoint.x, self.wayPoint.y)
-        self.wayPoint_prev.x, self.wayPoint_prev.y = x, y
-        
-        print("Current and previous-1", self.wayPoint.x, self.wayPoint_prev.x, x)
+        x = waypoint_res * math.cos(waypoint_heading) + x0
+        y = waypoint_res * math.sin(waypoint_heading) + y0
 
         self.map_boundary_reached = False
 
-        if not self.xbounds.min < self.wayPoint.x < self.xbounds.max \
-                or not self.ybounds.min < self.wayPoint.y < self.ybounds.max:
+        if not self.xbounds.min < x < self.xbounds.max \
+                or not self.ybounds.min < y < self.ybounds.max:
             rospy.logwarn("Map boundary reached. Corrected waypoint.x = %f"%self.wayPoint_prev.x)
             self.map_boundary_reached = True
 
-            self.wayPoint = self.wayPoint_prev
-            print("Current and previous-2", self.wayPoint.x, self.wayPoint_prev.x)
+            x,y = x0,y0
+
+        self.wayPoint_prev.x, self.wayPoint_prev.y = x0, y0
+        self.wayPoint.x, self.wayPoint.y = x, y
 
         self.sendWayPoint()
 
     def goToWaypoint(self, wayp):
-        if self.xbounds.min < wayPoint.x < self.xbounds.max \
-                and self.ybounds.min < wayPoint.y < self.ybounds.max:
+        if self.xbounds.min < wayp.x < self.xbounds.max \
+                and self.ybounds.min < wayp.y < self.ybounds.max:
             self.map_boundary_reached = False
             self.wayPoint = wayp
-            print("Current and previous-5", self.wayPoint.x, self.wayPoint_prev.x)
         else:
             self.wayPoint = self.wayPoint_prev
             rospy.logerr("Point outside boundary")
@@ -148,11 +142,7 @@ class MoveDroneClient:
         self.has_reached_waypoint = False
         self.waypointGoal = waypointGoal([self.wayPoint])
         self.waypoint_client.send_goal(self.waypointGoal, done_cb=self.actionDone)
-        print("Current and previous-3", self.wayPoint.x, self.wayPoint_prev.x)
         self.wayPoint_prev = self.wayPoint
-        print("Current and previous-4", self.wayPoint.x, self.wayPoint_prev.x)
-    
-
 
     def actionDone(self, status, result):
         self.has_reached_waypoint = True
