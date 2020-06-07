@@ -30,6 +30,7 @@ class MoveDroneClient:
         self.waypoint_heading = self.drone_heading
 
         self.wayPoint = Point()
+        self.wayPoint.x = self.wayPoint.y = None
         self.wayPoint_prev = self.position   
 
 
@@ -63,6 +64,11 @@ class MoveDroneClient:
 
         return (self.waypoint[0], self.waypoint[1], self.waypoint[2])
 
+        # self.wayPoint.x = self._waypoint_resolution * math.cos(waypoint_heading) + self.wayPoint_prev.x
+        # self.wayPoint.y = self._waypoint_resolution * math.sin(waypoint_heading) + self.wayPoint_prev.y
+        # self.wayPoint.z = self.position.z
+        # return self.wayPoint
+
 
     def sendWaypoint(self, waypoint, wait_for_result=True):
         # Send waypoint and set has_reached_waypoint to false. Set this back to true when the feedback from server comes true
@@ -73,6 +79,14 @@ class MoveDroneClient:
         if wait_for_result:
             self.waypoint_client.wait_for_result()
         self.waypoint_prev = self.get_drone_position()
+
+        # self.has_reached_waypoint = False
+        # self.waypointGoal = waypointGoal([waypoint])
+
+        # self.waypoint_client.send_goal(self.waypointGoal, done_cb=self.actionDone)
+        # if wait_for_result:
+        #     self.waypoint_client.wait_for_result()
+        # self.waypoint_prev = self.position
 
 
     def followDirection(self, waypoint_heading, waypoint_res=None):

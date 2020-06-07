@@ -10,6 +10,7 @@ from json import loads
 import rospy
 
 import actionlib
+from actionlib_msgs.msg import GoalStatus
 from crazyflie_control.msg import waypointGoal, waypointAction, waypointResult, waypointFeedback
 from plume_gsl.msg import rasterScanAction, rasterScanGoal, rasterScanResult, rasterScanFeedback
 from geometry_msgs.msg import Twist, Point
@@ -36,7 +37,7 @@ class Metaheuristic:
             # self.drone_y = rospy.get_param("/crazyflie_pose_transform/drone_spawn_y")
             # self.drone_z = rospy.get_param("/crazyflie_pose_transform/drone_spawn_z")
             # self.drone_heading = rospy.get_param("/crazyflie_pose_transform/drone_spawn_yaw")
-            self.algorithm = rospy.get_param("~/Algorithm",1)
+            self.algorithm = rospy.get_param("~/Algorithm",2)
             xlims = rospy.get_param("xlims","[0,20]")
             ylims = rospy.get_param("ylims","[0,20]")
         except KeyError:
@@ -51,7 +52,8 @@ class Metaheuristic:
         self.ybounds = Range(ylims[0], ylims[1])
         
         # Waypoint resolution parameters        
-        self.waypoint_res = 0.5  
+        self.waypoint_res = 0.5
+        self.waypoint_heading = self.drone.heading
 
         # The following are to change the waypoint_resolution based on the concentration      
         self.res_range = Range(1, 2.5)
@@ -61,6 +63,10 @@ class Metaheuristic:
         self.waypoint_client = actionlib.SimpleActionClient('waypoint', waypointAction)
         self.waypoint_client.wait_for_server()
         self.waypointGoal = waypointGoal()
+
+        self.raster = actionlib.SimpleActionClient("rasterScan", rasterScanAction)
+        self.raster.wait_for_server()
+        self.raster_goal = rasterScanGoal()
 
         self.listener = tf.TransformListener()
         self.fixed_frame = rospy.get_param("fixed_frame", "map")
@@ -98,6 +104,7 @@ class Metaheuristic:
         self.concentration_hist = []
 
         self.raster_scan_complete = True
+        self.initial_scan = False
 
         self.wind_hist = deque([])
         self.len_wind_hist = 15
@@ -112,9 +119,12 @@ class Metaheuristic:
         self.waypoint_slope = (self.res_range.max - self.res_range.min)/(1/self.conc_range.min - 1/self.conc_range.max)
         self.waypoint_intercept = self.res_range.min - self.waypoint_slope*(1/self.conc_range.max)
 
-    def callRasterScan(self):
+    def callRasterScan(self,distance):
         # Send raster scan goal
+        self.raster_goal.scan_distance = distance
+        self.raster.send_goal(self.raster_goal,done_cb=self.rasterDone)
         self.raster_scan_complete = False
+        return True
     
     def changeTemperature(self):
         # Change temperature
@@ -151,13 +161,14 @@ class Metaheuristic:
 
     def getInitialHeuristic(self):
         if len(self.wind_hist) == self.len_wind_hist:
+            rospy.loginfo("Getting initial heuristic")
             if self.algorithm == self.FOLLOW_WIND:
                 self.waypoint_heading = math.pi + np.mean(self.wind_hist)
             
-            elif self.algorithm == self.ZIGZAG:
+            # elif self.algorithm == self.ZIGZAG:
+            else:
                 if random.random() >= 0.5:
-                    self.alpha *= -1            
-                
+                    self.alpha *= -1                
                 self.waypoint_heading = math.pi + np.mean(self.wind_hist) + self.alpha
             return True
         else:
@@ -172,7 +183,8 @@ class Metaheuristic:
                 dir = -1
             self.waypoint_heading = dir*math.pi/2 + np.mean(self.wind_hist)
         
-        elif self.algorithm == self.ZIGZAG:
+        # elif self.algorithm == self.ZIGZAG:
+        else:
             self.alpha *= -1
             self.waypoint_heading = math.pi + np.mean(self.wind_hist) + self.alpha        
 
@@ -209,6 +221,16 @@ class Metaheuristic:
             angle -= 2*math.pi
 
         return angle
+
+    def rasterDone(self, status, result):
+        if status == GoalStatus().SUCCEEDED:
+            if result.max_concentration > self.max_conc_val:
+                self.max_conc_val = result.max_concentration
+                self.max_conc_at.x, self.max_conc_at.y, self.max_conc_at.z = result.max_concentration_point
+            self.raster_scan_complete = True 
+        else:
+            rospy.logerr("Raster Scan not completed. Status = %s"%status.text)
+
 
     def sendWaypoint(self,x,y,z):
         # Send waypoint and set has_reached_waypoint to false. Set this back to true when the feedback from server comes true
@@ -274,9 +296,9 @@ class Metaheuristic:
         
         self.concentration_hist.append(concentration)
 
-        if self.drone.wayPoint.x == 0:
-            if self.algorithm == self.METAHEURISTIC:
-                self.callRasterScan()
+        if not self.initial_scan or not self.drone.wayPoint.x:    
+            if self.algorithm == self.METAHEURISTIC and not self.initial_scan:
+                self.initial_scan = self.callRasterScan(distance=1)
                 return
 
             elif self.getInitialHeuristic():

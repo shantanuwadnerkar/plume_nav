@@ -40,9 +40,12 @@ class RasterScan:
         rospy.wait_for_message("Anemometer/WindSensor_reading", anemometer)
 
         self.rs_start_position = self.move_drone_client.get_drone_position()
+        # self.rs_start_position = self.move_drone_client.position
         self.rs_scan_distance = 0.0
         self.rs_scanned_distance = 0.0
-        self.rs_max_concentration_position_tuple = (self.current_concentration, self.move_drone_client.get_drone_position())        
+        self.rs_max_concentration_position_tuple = (self.current_concentration, self.move_drone_client.get_drone_position())
+        # self.rs_max_concentration_position_tuple = (self.current_concentration, (self.move_drone_client.position.x. \
+        #                                             self.move_drone_client.position.y, self.move_drone_client.position.z))        
 
         if use_actionlib:
             self.action_server = actionlib.SimpleActionServer('rasterScan', rasterScanAction, self.rs_action_callback, False)
@@ -60,6 +63,7 @@ class RasterScan:
             self.avg_wind_first_time = False
 
         self.rs_start_position = self.move_drone_client.get_drone_position()
+        # self.rs_start_position = self.move_drone_client.position
 
         heading = self.getPerpendicularAngle(self.avg_wind_direction)
 
@@ -90,6 +94,7 @@ class RasterScan:
             waypoint = self.move_drone_client.generateWaypoint(heading)
             self.move_drone_client.sendWaypoint(waypoint)
             self.rs_scanned_distance = self.findScannedDistance(self.move_drone_client.get_drone_position())
+            # self.rs_scanned_distance = self.findScannedDistance(self.move_drone_client.position)
 
         self.rs_scanned_distance = 0.0
 
@@ -100,11 +105,14 @@ class RasterScan:
 
     def findScannedDistance(self, current_position):
         return math.sqrt((current_position[0] - self.rs_start_position[0])**2 + (current_position[1] - self.rs_start_position[1])**2 + (current_position[2] - self.rs_start_position[2])**2)
+        # return math.sqrt((current_position.x - self.rs_start_position.x)**2 + (current_position.y - self.rs_start_position.y)**2 + (current_position.z - self.rs_start_position.z)**2)
 
 
     def concentration_callback(self, concentration_reading):
         self.current_concentration = concentration_reading.raw
         self.concentration_position_tuple = (self.current_concentration, self.move_drone_client.get_drone_position())
+        # self.concentration_position_tuple = (self.current_concentration, (self.move_drone_client.position.x. \
+        #                                             self.move_drone_client.position.y, self.move_drone_client.position.z))
 
 
     def anemometer_callback(self, msg):
