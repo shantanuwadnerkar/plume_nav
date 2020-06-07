@@ -16,7 +16,7 @@
 
     <node name="move_drone" pkg="crazyflie_control" type="move_drone.py" />
 
-    <node name="metaheuristic" pkg="plume_gsl" type="metaheuristic.py" >
+    <node name="metaheuristic" pkg="plume_gsl" type="metaheuristic.py" output="screen" >
         <param name="Algorithm" value="$(arg METAHEURISTIC)" />
     </node>
 

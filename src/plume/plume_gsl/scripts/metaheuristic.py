@@ -38,18 +38,10 @@ class Metaheuristic:
             # self.drone_z = rospy.get_param("/crazyflie_pose_transform/drone_spawn_z")
             # self.drone_heading = rospy.get_param("/crazyflie_pose_transform/drone_spawn_yaw")
             self.algorithm = rospy.get_param("~/Algorithm",2)
-            xlims = rospy.get_param("xlims","[0,20]")
-            ylims = rospy.get_param("ylims","[0,20]")
         except KeyError:
             raise rospy.ROSInitException
         
         Range = namedtuple("Range", "min max")
-
-        xlims = loads(xlims)
-        ylims = loads(ylims)
-        
-        self.xbounds = Range(xlims[0], xlims[1])
-        self.ybounds = Range(ylims[0], ylims[1])
         
         # Waypoint resolution parameters        
         self.waypoint_res = 0.5
@@ -98,13 +90,15 @@ class Metaheuristic:
         self.has_reached_waypoint = True
         self.moving_to_source = False
         self.source_reached = False
+        self.lost_plume = False
+        self.lost_plume_max = 3
                 
         self.max_conc_at = Point()
         self.max_conc_val = None
         self.concentration_hist = []
 
         self.raster_scan_complete = True
-        self.initial_scan = False
+        self.initial_scan_complete = False
 
         self.wind_hist = deque([])
         self.len_wind_hist = 15
@@ -139,6 +133,15 @@ class Metaheuristic:
         gradient = np.mean(self.concentration_hist[L/2:]) - np.mean(self.concentration_hist[:L/2])
         return gradient
 
+    def declareSourceCondition(self):        
+        if self.algorithm == self.FOLLOW_WIND:
+                self.source_reached = True
+
+        # if self.algorithm == self.ZIGZAG:
+        else:
+            rospy.loginfo("Algorithm change to FOLLOW_WIND")
+            self.algorithm = self.FOLLOW_WIND
+
     def dronePositionCallback(self, msg):
         self.drone_x = msg.pose.pose.position.x
         self.drone_y = msg.pose.pose.position.y
@@ -167,6 +170,7 @@ class Metaheuristic:
             
             # elif self.algorithm == self.ZIGZAG:
             else:
+                rospy.loginfo("Choosing zigzag direction")
                 if random.random() >= 0.5:
                     self.alpha *= -1                
                 self.waypoint_heading = math.pi + np.mean(self.wind_hist) + self.alpha
@@ -185,33 +189,26 @@ class Metaheuristic:
         
         # elif self.algorithm == self.ZIGZAG:
         else:
+            rospy.loginfo("Changing Zigzag direction")
             self.alpha *= -1
             self.waypoint_heading = math.pi + np.mean(self.wind_hist) + self.alpha        
 
     def getNormalHeuristic(self):
         if self.algorithm == self.FOLLOW_WIND:
+            rospy.loginfo("Following Wind")
             self.waypoint_heading = math.pi + np.mean(self.wind_hist)
         elif self.algorithm == self.ZIGZAG:
+            rospy.loginfo("Keeping same zigzag angle")
             pass
+
+    def goToMaxConcentration(self):
+        self.drone.goToWaypoint(Point(self.max_conc_at.x, self.max_conc_at.y, self.drone.position.z))
+        rospy.loginfo("%f"%self.max_conc_at.x)
 
     def maxSourceProbabilityCallback(self, msg):
         self.max_source_prob_x = msg.x
         self.max_source_prob_y = msg.y
         self.max_source_prob_z = msg.z
-
-    def moveToSource(self):
-        
-        if self.algorithm == self.FOLLOW_WIND:
-                self.moving_to_source = True
-
-        if self.algorithm == self.ZIGZAG:
-            # Should implement raster scan here before FOLLOW_WIND
-            self.callRasterScan()
-            if self.raster_scan_complete:
-                self.algorithm = self.FOLLOW_WIND
-        
-        self.waypoint_x, self.waypoint_y = self.max_conc_at.x, self.max_conc_at.y
-
 
     def normalizing_angle(self, angle):
         while angle <= -math.pi:
@@ -227,7 +224,14 @@ class Metaheuristic:
             if result.max_concentration > self.max_conc_val:
                 self.max_conc_val = result.max_concentration
                 self.max_conc_at.x, self.max_conc_at.y, self.max_conc_at.z = result.max_concentration_point
-            self.raster_scan_complete = True 
+            self.raster_scan_complete = True
+
+            if self.initial_scan_complete:
+                rospy.loginfo("Non initial Raster Scan Complete. Following Wind")
+                self.algorithm = self.FOLLOW_WIND
+            else:
+                rospy.loginfo("Initial Raster scan complete")
+                self.initial_scan_complete = True
         else:
             rospy.logerr("Raster Scan not completed. Status = %s"%status.text)
 
@@ -266,25 +270,12 @@ class Metaheuristic:
         if len(self.wind_hist) > self.len_wind_hist:
             self.wind_hist.popleft()
 
-    def concentrationCallback(self, msg):        
-        if not self.raster_scan_complete:
-            # Check status of action
-            # self.raster_scan_complete = 
-            if self.raster_scan_complete:
-                self.concentration_hist.append(msg.raw)
-
-                # Compare maximum concentration
-
-                self.getNormalHeuristic()
-                self.waypointResCalc()
-                self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
-                
-                self.concentration_hist = []
-            
+    def concentrationCallback(self, msg):  
+        if self.source_reached:
+            rospy.logwarn_once("Source declared at (%f,%f)",self.drone.position.x, self.drone.position.y)
             return
 
-        if self.source_reached:
-            rospy.loginfo_once("Source declared at (%f,%f)",self.drone_x, self.drone_y)
+        if not self.raster_scan_complete:            
             return
 
         concentration = msg.raw
@@ -296,18 +287,36 @@ class Metaheuristic:
         
         self.concentration_hist.append(concentration)
 
-        if not self.initial_scan or not self.drone.wayPoint.x:    
-            if self.algorithm == self.METAHEURISTIC and not self.initial_scan:
-                self.initial_scan = self.callRasterScan(distance=1)
-                return
 
-            elif self.getInitialHeuristic():
+        # if not self.initial_scan_complete or not self.drone.wayPoint.x:    
+        #     if self.algorithm == self.METAHEURISTIC and not self.initial_scan_complete:
+        #         rospy.loginfo("Calling Initial Raster Scan")
+        #         self.callRasterScan(distance=1)
+        #         return
+
+        #     elif self.getInitialHeuristic():
+        #         self.waypointResCalc()
+        #         self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
+        if not self.drone.wayPoint.x:
+            if self.getInitialHeuristic():
                 self.waypointResCalc()
                 self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
 
+
         elif self.drone.has_reached_waypoint and not self.source_reached:
-            
-            rospy.loginfo("Length of concentration data: %d"%len(self.concentration_hist))
+
+            if self.lost_plume:
+                if self.concentration_hist[-1] > self._conc_epsilon:
+                    self.declareSourceCondition()
+                    self.lost_plume = False
+                else:
+                    distance = 2
+                    self.callRasterScan(distance)
+                    distance += 1
+                    return
+
+            if self.source_reached:
+                return             
 
             gradient = self.checkGradient()
 
@@ -315,6 +324,7 @@ class Metaheuristic:
                 self.getNormalHeuristic()
                 self.waypointResCalc()
                 self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
+                self.lost_plume_counter = 0
 
                 # self.changeTemperature()
                 
@@ -323,25 +333,41 @@ class Metaheuristic:
 
                 # If non-increasing gradient and low concentration
                 if self.concentration_hist[-1] < self._conc_epsilon:
-                    rospy.loginfo("Concentration too low. Getting new heuristic")
-                    self.getNewHeuristic()
-                    self.waypointResCalc()
-                    self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
+                    self.lost_plume_counter += 1
+                    if self.lost_plume_counter <= self.lost_plume_max:
+                        rospy.loginfo("Concentration too low. Getting new heuristic")
+                        self.getNewHeuristic()
+                        self.waypointResCalc()
+                        self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
+                    else:
+                        rospy.loginfo("Plume lost due to low concentration. Going to max concentration")
+                        self.lost_plume = True
+                        self.lost_plume_counter = 0
+
+                        # Can put a raster scan instead
+                        self.goToMaxConcentration()
 
                 elif self.maintain_dir_prob > random.random():
                     rospy.loginfo("Maintain direction prob")
                     self.getNormalHeuristic()
                     self.waypointResCalc()
                     self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
+                    self.lost_plume_counter = 0
                     # self.changeTemperature()
                 else:
-                    rospy.loginfo("Getting new heuristic")
+                    rospy.loginfo("Low gradient. Getting new heuristic")
                     self.getNewHeuristic()
                     self.waypointResCalc()
                     self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
+                    self.lost_plume_counter = 0
                     # Calculate new direction
             
             self.concentration_hist = []
+
+            if self.drone.map_boundary_reached:
+                rospy.loginfo("Map boundary reached. Plume lost. Going to max concentration")
+                self.lost_plume = True
+                self.goToMaxConcentration()
 
 
 if __name__ == "__main__":
