@@ -45,6 +45,7 @@ class Prob_Mapping:
         self.got_initial_position = True
         self.total_distance_against_wind = 0.0
         self.x_prev = self.y_prev = None
+        self. _conc_epsilon = 5
         
         self.go() # Start mapping
 
@@ -225,7 +226,7 @@ class Prob_Mapping:
                 gas_conc = self.gas_conc
 
             # Check if detection occurs     
-            detection = gas_conc > 0
+            detection = gas_conc > self._conc_epsilon
 
             if not self.adjust_wind_interval(x_pos, y_pos, detect=detection):
                 continue 
