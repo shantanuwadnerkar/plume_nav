@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+
+<launch>
+
+
+    <param name="fixed_frame" value="map"/>
+    <param name="anemometer_frame" value="anemometer_frame"/>
+    
+    <include file="$(find crazyflie_description)/launch/crazyflie2_rviz.launch" />
+
+    <include file="$(find plume_environment)/launch/plume.launch" />
+
+    <include file="$(find plume_gsl)/launch/probability_mapping.launch" />
+
+    <node name="move_drone" pkg="crazyflie_control" type="move_drone.py" />
+
+    <node name="metaheuristic" pkg="plume_gsl" type="metaheuristic.py" output="screen" >
+        # Algorithm:
+        # RASTER_UPWIND = 0
+        # ZIGZAG = 1
+        # METAHEURISTIC = 2
+        <param name="Algorithm" value="2" />
+    </node>
+
+    <node name="raster_scan" pkg="plume_gsl" type="raster_scan.py" />
+
+    <node name="move_drone_client" pkg="plume_gsl" type="move_drone_client.py" />
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find plume_gsl)/launch/rviz/demo.rviz" required="true" />
+
+</launch>

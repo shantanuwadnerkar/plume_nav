@@ -1,9 +1,7 @@
 <?xml version="1.0"?>
 
 <launch>
-    <arg name="FOLLOW_WIND" default="0" />
-    <arg name="ZIGZAG" default="1" />
-    <arg name="METAHEURISTIC" default="2" />
+
 
     <param name="fixed_frame" value="map"/>
     <param name="anemometer_frame" value="anemometer_frame"/>
@@ -17,7 +15,11 @@
     <node name="move_drone" pkg="crazyflie_control" type="move_drone.py" />
 
     <node name="metaheuristic" pkg="plume_gsl" type="metaheuristic.py" output="screen" >
-        <param name="Algorithm" value="$(arg METAHEURISTIC)" />
+        # Algorithm:
+        # RASTER_UPWIND = 0
+        # ZIGZAG = 1
+        # METAHEURISTIC = 2
+        <param name="Algorithm" value="0" />
     </node>
 
     <node name="raster_scan" pkg="plume_gsl" type="raster_scan.py" />

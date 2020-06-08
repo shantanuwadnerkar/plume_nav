@@ -33,13 +33,18 @@ class Metaheuristic:
         self.drone = MoveDroneClient()
 
         try:
-            # self.drone_x = rospy.get_param("/crazyflie_pose_transform/drone_spawn_x")
-            # self.drone_y = rospy.get_param("/crazyflie_pose_transform/drone_spawn_y")
-            # self.drone_z = rospy.get_param("/crazyflie_pose_transform/drone_spawn_z")
-            # self.drone_heading = rospy.get_param("/crazyflie_pose_transform/drone_spawn_yaw")
-            self.algorithm = rospy.get_param("~/Algorithm",2)
+            self.algorithm = rospy.get_param("~Algorithm",2)
         except KeyError:
             raise rospy.ROSInitException
+
+        if self.algorithm == self.FOLLOW_WIND:
+            rospy.loginfo("Algorithm = RASTER SCAN AND UPWIND")
+        elif self.algorithm == self.ZIGZAG:
+            rospy.loginfo("Algorithm = ZIGZAG")
+        elif self.algorithm == self.METAHEURISTIC:
+            rospy.loginfo("Algorithm = METAHEURISTIC")
+        else:
+            rospy.logfatal("Invalid input for algorithm")
         
         Range = namedtuple("Range", "min max")
         
@@ -62,11 +67,12 @@ class Metaheuristic:
 
         self.listener = tf.TransformListener()
         self.fixed_frame = rospy.get_param("fixed_frame", "map")
-        self.anemo_frame = rospy.get_param("anemometer_frame","anemometer_frame")
+        self.anemo_frame = rospy.get_param("anemometer_frame","anemometer_framself.meta_stde")
 
         # Temperature parameter
-        self.Temp = 100.0
-        self.delta_Temp = 2.0
+        self.Temp = 56.0
+        self.delta_Temp = 3.5
+        self.meta_std = 0.2
 
         # Zig-zag angle
         self.alpha = math.radians(35)
@@ -103,6 +109,8 @@ class Metaheuristic:
         self.wind_hist = deque([])
         self.len_wind_hist = 15
 
+        self.lost_distance = 2
+
     def actionDone(self, status, result):
         self.has_reached_waypoint = True
         
@@ -123,8 +131,9 @@ class Metaheuristic:
     def changeTemperature(self):
         # Change temperature
             self.Temp -= self.delta_Temp
+            rospy.loginfo("New Temperature = %f"%self.Temp)
             if self.Temp <= 0:
-                rospy.logerr("Temperature has reduced below Zero")
+                rospy.logerr("Temperature has gone below Zero")
     
     def checkGradient(self):
         L = len(self.concentration_hist)
@@ -162,18 +171,36 @@ class Metaheuristic:
 
         self.sendWaypoint(self.waypoint_x,self.waypoint_y,self.waypoint_z)
 
+    def getHeuristicMeta(self):
+        message = '''Choosing a direction with respect to max source probability. 
+        Current heading = {}; waypoint_heading = {}'''
+        waypoint_heading = math.atan2(self.max_source_prob_y-self.drone.position.y,\
+                                        self.max_source_prob_x-self.drone.position.x)
+
+        self.waypoint_heading = waypoint_heading + np.random.normal(0,self.meta_std)
+        rospy.loginfo(message.format(self.drone.heading, self.waypoint_heading))
+
     def getInitialHeuristic(self):
         if len(self.wind_hist) == self.len_wind_hist:
             rospy.loginfo("Getting initial heuristic")
+
             if self.algorithm == self.FOLLOW_WIND:
+                rospy.loginfo("Following Wind")
                 self.waypoint_heading = math.pi + np.mean(self.wind_hist)
-            
-            # elif self.algorithm == self.ZIGZAG:
-            else:
+
+            elif self.algorithm == self.ZIGZAG:
                 rospy.loginfo("Choosing zigzag direction")
                 if random.random() >= 0.5:
                     self.alpha *= -1                
                 self.waypoint_heading = math.pi + np.mean(self.wind_hist) + self.alpha
+
+            elif self.algorithm == self.METAHEURISTIC:
+                self.getHeuristicMeta()
+            
+            else:
+                rospy.logfatal("No algorithm chosen")
+                return False
+
             return True
         else:
             return False
@@ -187,11 +214,14 @@ class Metaheuristic:
                 dir = -1
             self.waypoint_heading = dir*math.pi/2 + np.mean(self.wind_hist)
         
-        # elif self.algorithm == self.ZIGZAG:
-        else:
+        elif self.algorithm == self.ZIGZAG:
             rospy.loginfo("Changing Zigzag direction")
             self.alpha *= -1
-            self.waypoint_heading = math.pi + np.mean(self.wind_hist) + self.alpha        
+            self.waypoint_heading = math.pi + np.mean(self.wind_hist) + self.alpha  
+
+        elif self.algorithm == self.METAHEURISTIC:
+            rospy.loginfo("Getting new heuristic from max_probability")
+            self.getHeuristicMeta()      
 
     def getNormalHeuristic(self):
         if self.algorithm == self.FOLLOW_WIND:
@@ -199,7 +229,10 @@ class Metaheuristic:
             self.waypoint_heading = math.pi + np.mean(self.wind_hist)
         elif self.algorithm == self.ZIGZAG:
             rospy.loginfo("Keeping same zigzag angle")
-            pass
+        elif self.algorithm == self.METAHEURISTIC:
+            rospy.loginfo("Following same heuristic")
+        else:
+            rospy.logerr("No algorithm chosen")
 
     def goToMaxConcentration(self):
         self.drone.goToWaypoint(Point(self.max_conc_at.x, self.max_conc_at.y, self.drone.position.z))
@@ -279,29 +312,46 @@ class Metaheuristic:
             return
 
         concentration = msg.raw
+        self.concentration_hist.append(concentration)
 
         # Record of maximum concentration
         if concentration > self.max_conc_val:
             self.max_conc_val = concentration
             self.max_conc_at.x, self.max_conc_at.y = self.drone.position.x, self.drone.position.y
+
+        # Initial Steps
+        if self.algorithm == self.ZIGZAG:
+            if concentration > self._conc_epsilon:
+                self.initial_scan_complete = True
+            else:
+                rospy.logwarn("Concentration less than threshold")
         
-        self.concentration_hist.append(concentration)
+        if not self.initial_scan_complete:
+            rospy.loginfo("Calling Initial Raster Scan")
+            # Update the distance as required
+            self.callRasterScan(distance=1)
+            return        
 
-
-        # if not self.initial_scan_complete or not self.drone.wayPoint.x:    
-        #     if self.algorithm == self.METAHEURISTIC and not self.initial_scan_complete:
+        # if not self.initial_scan_complete or not self.drone.wayPoint.x:
+        #     # Raster scan not required for zigzag, but needed for other two   
+        #     if not self.algorithm == self.ZIGZAG and not self.initial_scan_complete:
         #         rospy.loginfo("Calling Initial Raster Scan")
+        #         # Update the distance as required
         #         self.callRasterScan(distance=1)
         #         return
 
         #     elif self.getInitialHeuristic():
+        #         # FOLLOW_WIND and ZIGZAG come here
+        #         # No raster scan. So set complete if not set already
+        #         self.initial_scan_complete = True
         #         self.waypointResCalc()
         #         self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
+
+        # If no first waypoint
         if not self.drone.wayPoint.x:
             if self.getInitialHeuristic():
                 self.waypointResCalc()
                 self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
-
 
         elif self.drone.has_reached_waypoint and not self.source_reached:
 
@@ -310,9 +360,8 @@ class Metaheuristic:
                     self.declareSourceCondition()
                     self.lost_plume = False
                 else:
-                    distance = 2
-                    self.callRasterScan(distance)
-                    distance += 1
+                    self.callRasterScan(self.lost_distance)
+                    self.lost_distance += 1
                     return
 
             if self.source_reached:
@@ -326,10 +375,12 @@ class Metaheuristic:
                 self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
                 self.lost_plume_counter = 0
 
-                # self.changeTemperature()
+                if self.algorithm == self.METAHEURISTIC:
+                    self.changeTemperature()
                 
-            else:
-                # maintain_dir_prob = math.exp((gradient - self._conc_grad_epsilon)/self.Temp)
+            else: # Decreasing gradient
+                if self.algorithm == self.METAHEURISTIC:
+                    self.maintain_dir_prob = math.exp((gradient - self._conc_grad_epsilon)/self.Temp)
 
                 # If non-increasing gradient and low concentration
                 if self.concentration_hist[-1] < self._conc_epsilon:
@@ -348,12 +399,14 @@ class Metaheuristic:
                         self.goToMaxConcentration()
 
                 elif self.maintain_dir_prob > random.random():
+                    if self.algorithm == self.METAHEURISTIC:
+                        rospy.loginfo("Maintain_dir_prob: %f"%self.maintain_dir_prob)                        
                     rospy.loginfo("Maintain direction prob")
                     self.getNormalHeuristic()
                     self.waypointResCalc()
                     self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
                     self.lost_plume_counter = 0
-                    # self.changeTemperature()
+                    self.changeTemperature()
                 else:
                     rospy.loginfo("Low gradient. Getting new heuristic")
                     self.getNewHeuristic()
