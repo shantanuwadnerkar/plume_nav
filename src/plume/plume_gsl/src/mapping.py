@@ -1,13 +1,10 @@
 #! /usr/bin/env python
 
 # Current issues
-# 
-# The drone does not have a wind history prior to the mission start
-# This means that Vx and Vy grow until t_max is reached 
-# It should be okay though
 #
 # t_max depends on average wind speed. Right now t_max is eyeballed
 #
+# Adjustment of t_max currently depends on the assumption that wind along +x axis
 # 
 
 import rospy
@@ -34,7 +31,7 @@ class Prob_Mapping:
         self.y = 0 # y position
         self.listener = tf.TransformListener()
         self.wind_history = [] # An array that stores the history of anemometer readings
-        self.t_max = rospy.Duration(15) # Approx the max time it takes for particle to move across the space
+        self.t_max = self.t_max_initial = rospy.Duration(15) # Approx the max time it takes for particle to move across the space
         self.K = -2 # (upper) pointer to the wind data for current time
         self.L = None # (lower) pointer to the wind data furthest way from current time but within self.t_max 
         
@@ -44,14 +41,20 @@ class Prob_Mapping:
         self.sensor_frame = rospy.get_param("~sensor_frame")
         self.verbose      = rospy.get_param("~verbose") 
         self.use_service_for_gas = rospy.get_param("~use_service_for_gas")
+        self.adjust_tmax = rospy.get_param("~adjust_tmax", False)
+        self.got_initial_position = True
+        self.total_distance_against_wind = 0.0
+        self.x_prev = self.y_prev = None
         
         self.go() # Start mapping
-
 
     def pos_callback(self, msg):
         self.x = msg.pose.pose.position.x
         self.y = msg.pose.pose.position.y
-
+        if self.adjust_tmax and not self.got_initial_position:
+            self.y_prev = self.y
+            self.got_initial_position = True
+            rospy.logwarn("Got y_prev")
 
     def normalizing_angle(self, angle):
 
@@ -96,12 +99,44 @@ class Prob_Mapping:
     def sensor_callback(self, msg):
         self.gas_conc = msg.raw
 
+    def normalize_angle(self, angle):
+        while angle <= -math.pi:
+            angle += 2*math.pi
+
+        while angle > math.pi:
+            angle -= 2*math.pi
+
+        return angle
+
+    def adjust_time(self, wind_data, x, y):
+        dist_travelled = math.sqrt((y-self.y_prev)**2 + (x-self.x_prev)**2)
+        direction_travel = math.atan2(y-self.y_prev,x-self.x_prev)
+        V_total = np.delete(wind_data,2,1).astype(float)
+        Vx,Vy = np.sum(V_total,0)
+        Vx_bar,Vy_bar = np.mean(V_total,0)
+        avg_wind_dir = math.atan2(Vy,Vx)
+        opp_wind = avg_wind_dir - math.pi
+
+        angle_diff = self.normalize_angle(direction_travel-opp_wind)
         
-    def adjust_wind_interval(self):
+        self.step_distance_against_wind = dist_travelled*math.cos(angle_diff)
+        self.total_distance_against_wind += self.step_distance_against_wind
+
+        # avg_wind_speed = math.sqrt(Vx_bar**2 + Vy_bar**2)
+        avg_wind_speed = math.sqrt(Vx_bar**2)*1.34
+        t_max = self.t_max_initial.to_sec() - self.total_distance_against_wind/avg_wind_speed
+        self.t_max = rospy.Duration(t_max)
+        # print("total distance, avg wind", self.total_distance_against_wind,avg_wind_speed)
+        
+    def adjust_wind_interval(self, x, y, detect):
 
         curr_time = rospy.Time.now()
 
-        wind_data = self.wind_history[self.L:]               
+        wind_data = self.wind_history[self.L:]
+
+        if detect and self.x_prev and self.y_prev and self.adjust_tmax:
+            self.adjust_time(wind_data, x, y)
+            self.x_prev,self.y_prev = x, y 
 
         # Check if wind interval is greater than permissible interval
         # Adjust interval to the permissible limit
@@ -112,7 +147,12 @@ class Prob_Mapping:
                 else:
                     break
                 if windinstance == wind_data[-1]:
+                    print(wind_data)
                     rospy.logerr("Did not break loop")
+            return True
+        else:
+            # Wait for wind history array to build up to t_max
+            return False
 
     
     def go(self):
@@ -132,11 +172,13 @@ class Prob_Mapping:
             odor_req = rospy.ServiceProxy('odor_value', GasPosition)
         else:
             sensor_sub = rospy.Subscriber("/PID/Sensor_reading", gas_sensor, self.sensor_callback)
-            rospy.wait_for_message("/PID/Sensor_reading", gas_sensor, rospy.Duration(4.0))
-        
+            rospy.wait_for_message("/PID/Sensor_reading", gas_sensor, rospy.Duration(4.0))        
         
         # Get grid parameters
         grid = GridWorld()
+        if self.adjust_tmax:
+            self.got_initial_position = False
+            self.x_prev = grid.xlims[1]
 
         # Algorithm specific parameters
         # Initializing matrices
@@ -182,12 +224,13 @@ class Prob_Mapping:
             else:
                 gas_conc = self.gas_conc
 
-            rospy.loginfo("x,y = [%.2f,%.2f], Gas concentration: %.2f",x_pos,y_pos,gas_conc)
-
             # Check if detection occurs     
-            detection = gas_conc > 0      
+            detection = gas_conc > 0
 
-            self.adjust_wind_interval()
+            if not self.adjust_wind_interval(x_pos, y_pos, detect=detection):
+                continue 
+
+            rospy.loginfo("x,y = [%.2f,%.2f], Gas concentration: %.2f",x_pos,y_pos,gas_conc)
 
             # Wind values from t_L to t_K without accounting for the 'time' column of wind_history
             wind_data = np.delete(self.wind_history[self.L:K+1],2,1).astype(float)
