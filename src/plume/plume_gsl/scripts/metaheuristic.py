@@ -70,8 +70,8 @@ class Metaheuristic:
         self.anemo_frame = rospy.get_param("anemometer_frame","anemometer_framself.meta_stde")
 
         # Temperature parameter
-        self.Temp = 56.0
-        self.delta_Temp = 3.5
+        self.Temp = 14.00
+        self.delta_Temp = 0.5
         self.meta_std = 0.2
 
         # Zig-zag angle
@@ -93,6 +93,7 @@ class Metaheuristic:
 
         self.maintain_dir_prob = 0.4
 
+        self.max_probability_message_received = False
         self.has_reached_waypoint = True
         self.moving_to_source = False
         self.source_reached = False
@@ -242,6 +243,9 @@ class Metaheuristic:
         self.max_source_prob_x = msg.x
         self.max_source_prob_y = msg.y
         self.max_source_prob_z = msg.z
+        if not self.max_probability_message_received:
+            self.max_probability_message_received = True
+            rospy.loginfo("source prob: %f.%f",msg.x, msg.y)
 
     def normalizing_angle(self, angle):
         while angle <= -math.pi:
@@ -319,6 +323,12 @@ class Metaheuristic:
             self.max_conc_val = concentration
             self.max_conc_at.x, self.max_conc_at.y = self.drone.position.x, self.drone.position.y
 
+        # Since metaheuristic depends on probability map, wait for probability map to initialize
+        if self.algorithm == self.METAHEURISTIC:
+            if not self.max_probability_message_received:
+                rospy.loginfo("Waiting for probability message")
+                return
+
         # Initial Steps
         if self.algorithm == self.ZIGZAG:
             if concentration > self._conc_epsilon:
@@ -330,22 +340,7 @@ class Metaheuristic:
             rospy.loginfo("Calling Initial Raster Scan")
             # Update the distance as required
             self.callRasterScan(distance=1)
-            return        
-
-        # if not self.initial_scan_complete or not self.drone.wayPoint.x:
-        #     # Raster scan not required for zigzag, but needed for other two   
-        #     if not self.algorithm == self.ZIGZAG and not self.initial_scan_complete:
-        #         rospy.loginfo("Calling Initial Raster Scan")
-        #         # Update the distance as required
-        #         self.callRasterScan(distance=1)
-        #         return
-
-        #     elif self.getInitialHeuristic():
-        #         # FOLLOW_WIND and ZIGZAG come here
-        #         # No raster scan. So set complete if not set already
-        #         self.initial_scan_complete = True
-        #         self.waypointResCalc()
-        #         self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
+            return
 
         # If no first waypoint
         if not self.drone.wayPoint.x:
@@ -400,7 +395,7 @@ class Metaheuristic:
 
                 elif self.maintain_dir_prob > random.random():
                     if self.algorithm == self.METAHEURISTIC:
-                        rospy.loginfo("Maintain_dir_prob: %f"%self.maintain_dir_prob)                        
+                        rospy.loginfo("Maintain_dir_prob: %f; Gradient = %f",self.maintain_dir_prob, gradient)                        
                     rospy.loginfo("Maintain direction prob")
                     self.getNormalHeuristic()
                     self.waypointResCalc()
@@ -409,6 +404,8 @@ class Metaheuristic:
                     self.changeTemperature()
                 else:
                     rospy.loginfo("Low gradient. Getting new heuristic")
+                    if self.algorithm == self.METAHEURISTIC:
+                        rospy.loginfo("Maintain_dir_prob: %f; Gradient = %f",self.maintain_dir_prob, gradient)
                     self.getNewHeuristic()
                     self.waypointResCalc()
                     self.drone.followDirection(self.waypoint_heading, self.waypoint_res)
