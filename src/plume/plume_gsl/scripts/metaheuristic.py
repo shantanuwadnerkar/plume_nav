@@ -344,7 +344,7 @@ class Metaheuristic:
         if not self.initial_scan_complete:
             rospy.loginfo("Calling Initial Raster Scan")
             # Update the distance as required
-            self.callRasterScan(distance=1)
+            self.callRasterScan(distance=3)
             return
 
         # If no first waypoint
