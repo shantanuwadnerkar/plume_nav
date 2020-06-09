@@ -104,6 +104,7 @@ class Metaheuristic:
         self.max_conc_at = Point()
         self.max_conc_val = None
         self.concentration_hist = []
+        self.lost_plume_counter = 0
 
         self.raster_scan_complete = True
         self.initial_scan_complete = False
@@ -111,7 +112,7 @@ class Metaheuristic:
         self.wind_hist = deque([])
         self.len_wind_hist = 15
 
-        self.lost_distance = 2
+        self.lost_distance = 1
 
     def actionDone(self, status, result):
         self.has_reached_waypoint = True
