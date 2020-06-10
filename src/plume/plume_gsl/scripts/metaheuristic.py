@@ -26,7 +26,8 @@ from move_drone_client import MoveDroneClient
 class Metaheuristic:
     def __init__(self):
         # drone_spawn_heading is not yet added to rosparam
-        self.FOLLOW_WIND = 0
+        self.FOLLOW_WIND = -1
+        self.UPWIND = 0
         self.ZIGZAG = 1
         self.METAHEURISTIC = 2
 
@@ -37,7 +38,7 @@ class Metaheuristic:
         except KeyError:
             raise rospy.ROSInitException
 
-        if self.algorithm == self.FOLLOW_WIND:
+        if self.algorithm == self.UPWIND:
             rospy.loginfo("Algorithm = RASTER SCAN AND UPWIND")
         elif self.algorithm == self.ZIGZAG:
             rospy.loginfo("Algorithm = ZIGZAG")
@@ -103,6 +104,7 @@ class Metaheuristic:
         self.max_conc_at = Point()
         self.max_conc_val = None
         self.concentration_hist = []
+        self.lost_plume_counter = 0
 
         self.raster_scan_complete = True
         self.initial_scan_complete = False
@@ -110,7 +112,7 @@ class Metaheuristic:
         self.wind_hist = deque([])
         self.len_wind_hist = 15
 
-        self.lost_distance = 2
+        self.lost_distance = 1
 
     def actionDone(self, status, result):
         self.has_reached_waypoint = True
@@ -185,7 +187,7 @@ class Metaheuristic:
         if len(self.wind_hist) == self.len_wind_hist:
             rospy.loginfo("Getting initial heuristic")
 
-            if self.algorithm == self.FOLLOW_WIND:
+            if self.algorithm == self.UPWIND:
                 rospy.loginfo("Following Wind")
                 self.waypoint_heading = math.pi + np.mean(self.wind_hist)
 
@@ -207,7 +209,7 @@ class Metaheuristic:
             return False
 
     def getNewHeuristic(self):
-        if self.algorithm == self.FOLLOW_WIND:
+        if self.algorithm == self.UPWIND:
             # Choose a random perpendicular-to-wind direction
             if random.random() >= 0.5:
                 dir = 1
@@ -222,10 +224,13 @@ class Metaheuristic:
 
         elif self.algorithm == self.METAHEURISTIC:
             rospy.loginfo("Getting new heuristic from max_probability")
-            self.getHeuristicMeta()      
+            self.getHeuristicMeta()
+
+        elif self.algorithm == self.FOLLOW_WIND:
+            self.getNormalHeuristic()
 
     def getNormalHeuristic(self):
-        if self.algorithm == self.FOLLOW_WIND:
+        if self.algorithm == self.FOLLOW_WIND or self.algorithm == self.UPWIND:
             rospy.loginfo("Following Wind")
             self.waypoint_heading = math.pi + np.mean(self.wind_hist)
         elif self.algorithm == self.ZIGZAG:
@@ -266,6 +271,7 @@ class Metaheuristic:
             if self.initial_scan_complete:
                 rospy.loginfo("Non initial Raster Scan Complete. Following Wind")
                 self.algorithm = self.FOLLOW_WIND
+                self.lost_plume_max = 1
             else:
                 rospy.loginfo("Initial Raster scan complete")
                 self.initial_scan_complete = True
@@ -330,7 +336,7 @@ class Metaheuristic:
                 return
 
         # Initial Steps
-        if self.algorithm == self.ZIGZAG:
+        if self.algorithm == self.ZIGZAG and not self.initial_scan_complete:
             if concentration > self._conc_epsilon:
                 self.initial_scan_complete = True
             else:
@@ -339,7 +345,7 @@ class Metaheuristic:
         if not self.initial_scan_complete:
             rospy.loginfo("Calling Initial Raster Scan")
             # Update the distance as required
-            self.callRasterScan(distance=1)
+            self.callRasterScan(distance=3)
             return
 
         # If no first waypoint
@@ -380,7 +386,7 @@ class Metaheuristic:
                 # If non-increasing gradient and low concentration
                 if self.concentration_hist[-1] < self._conc_epsilon:
                     self.lost_plume_counter += 1
-                    if self.lost_plume_counter <= self.lost_plume_max:
+                    if self.lost_plume_counter < self.lost_plume_max:
                         rospy.loginfo("Concentration too low. Getting new heuristic")
                         self.getNewHeuristic()
                         self.waypointResCalc()
